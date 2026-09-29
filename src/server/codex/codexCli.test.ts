@@ -12,7 +12,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  rmSync(tempDir, { recursive: true, force: true });
+  // Windows 上被测 CLI 的进程树退出稍慢，目录可能短暂被占用，允许重试。
+  rmSync(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 });
 
 describe("CodexCliProvider", () => {
