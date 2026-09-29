@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { DiscussionMode } from "../../shared/types";
+import { defaultPythonCommand, venvPythonPath } from "../process/platformCommand";
 
 export type CodexProviderMode = "mock" | "cli";
 export type FunasrDevice = "auto" | "cpu" | "mps";
@@ -28,7 +29,11 @@ export type ServerConfig = {
   };
 };
 
-export function resolveFunasrRuntime(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): {
+export function resolveFunasrRuntime(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+  platform: NodeJS.Platform = process.platform
+): {
   pythonPath: string;
   asrHome: string;
 } {
@@ -37,8 +42,8 @@ export function resolveFunasrRuntime(env: NodeJS.ProcessEnv = process.env, cwd =
     ? cwd
     : existsSync(join(legacyAsrHome, ".modelscope_cache")) ? legacyAsrHome : cwd;
   const asrHome = resolve(cwd, env.FUNASR_HOME?.trim() || defaultAsrHome);
-  const bundledPython = join(asrHome, ".venv", "bin", "python");
-  const pythonPath = env.FUNASR_PYTHON_PATH?.trim() || (existsSync(bundledPython) ? bundledPython : "python3");
+  const bundledPython = venvPythonPath(join(asrHome, ".venv"), platform);
+  const pythonPath = env.FUNASR_PYTHON_PATH?.trim() || (existsSync(bundledPython) ? bundledPython : defaultPythonCommand(platform));
   return { pythonPath, asrHome };
 }
 

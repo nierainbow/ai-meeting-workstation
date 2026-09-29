@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { isUsableAiTurn } from "../../shared/aiTurns";
 import { AI_RESPONSE_TRUNCATED_NOTICE } from "../../shared/messages";
 import type { AudioAssetDto, DiscussionDetailDto, UtteranceDto } from "../../shared/types";
@@ -109,7 +109,7 @@ function formatLocalTime(value: string): string {
 }
 
 function resolveAudioPath(asset: AudioAssetDto, storagePaths: StoragePaths): string | undefined {
-  if (asset.path.startsWith(storagePaths.dataDir) || asset.path.startsWith("/")) return asset.path;
+  if (asset.path.startsWith(storagePaths.dataDir) || isAbsolute(asset.path)) return asset.path;
   return join(storagePaths.dataDir, asset.path);
 }
 

@@ -1,6 +1,6 @@
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadServerConfig, resolveFunasrRuntime } from "./serverConfig";
 
@@ -17,6 +17,32 @@ describe("loadServerConfig", () => {
     }
   });
 
+  it("finds the installer-created venv Python on both macOS and Windows layouts", () => {
+    const root = mkdtempSync(join(tmpdir(), "meeting-asr-venv-"));
+    try {
+      mkdirSync(join(root, ".modelscope_cache"));
+      mkdirSync(join(root, ".venv", "bin"), { recursive: true });
+      writeFileSync(join(root, ".venv", "bin", "python"), "");
+      mkdirSync(join(root, ".venv", "Scripts"), { recursive: true });
+      writeFileSync(join(root, ".venv", "Scripts", "python.exe"), "");
+
+      expect(resolveFunasrRuntime({}, root, "darwin").pythonPath).toBe(join(root, ".venv", "bin", "python"));
+      expect(resolveFunasrRuntime({}, root, "win32").pythonPath).toBe(join(root, ".venv", "Scripts", "python.exe"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to the platform's usual Python command when no venv exists", () => {
+    const root = mkdtempSync(join(tmpdir(), "meeting-asr-novenv-"));
+    try {
+      expect(resolveFunasrRuntime({}, root, "darwin").pythonPath).toBe("python3");
+      expect(resolveFunasrRuntime({}, root, "win32").pythonPath).toBe("python");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("uses real ASR mode and Codex CLI by default", () => {
     const config = loadServerConfig({
       VOLCENGINE_ASR_API_KEY: "api-key",
@@ -27,7 +53,7 @@ describe("loadServerConfig", () => {
     expect(config.codexProvider).toBe("cli");
     expect(config.funasrFileTimeoutMs).toBe(21_600_000);
     expect(config.funasrDevice).toBe("auto");
-    expect(config.funasrHotwordFile).toMatch(/config\/hotwords\/active\.txt$/);
+    expect(config.funasrHotwordFile).toMatch(/config[\\/]hotwords[\\/]active\.txt$/);
     expect(config.volcengineAsr.apiKey).toBe("api-key");
     expect(config.volcengineAsr.resourceId).toBe("volc.seedasr.sauc.duration");
   });
@@ -77,7 +103,7 @@ describe("loadServerConfig", () => {
       FUNASR_HOTWORD_FILE: "config/hotwords/furniture.txt"
     });
 
-    expect(config.funasrHotwordFile).toMatch(/config\/hotwords\/furniture\.txt$/);
+    expect(config.funasrHotwordFile).toMatch(/config[\\/]hotwords[\\/]furniture\.txt$/);
   });
 
   it("allows configuring portable FunASR paths without changing code", () => {
@@ -88,7 +114,7 @@ describe("loadServerConfig", () => {
     });
 
     expect(config.funasrPythonPath).toBe("python3");
-    expect(config.funasrAsrHome).toBe("/tmp/meeting-workstation-asr");
+    expect(config.funasrAsrHome).toBe(resolve("/tmp/meeting-workstation-asr"));
   });
 
   it("rejects an unsupported FunASR inference device", () => {

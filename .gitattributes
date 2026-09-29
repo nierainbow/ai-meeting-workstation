@@ -1,0 +1,4 @@
+# Windows 脚本按原样保存 CRLF 换行（.ps1 另带 UTF-8 BOM，Windows PowerShell 5.1 才能正确读中文）。
+# 用 -text 禁止 Git 做换行转换，保证 clone 和 GitHub「Download ZIP」拿到的都是同一份字节。
+*.bat -text
+*.ps1 -text

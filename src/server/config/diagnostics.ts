@@ -1,7 +1,7 @@
 import { accessSync, constants, existsSync, mkdirSync } from "node:fs";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { commandSucceeds } from "../process/platformCommand";
 import { resolveFunasrRuntime } from "./serverConfig";
 
 export type DiagnosticStatus = "pass" | "warn" | "fail";
@@ -170,8 +170,7 @@ function writableDataDirItem(dataDir: string): DiagnosticItem {
 }
 
 function commandWorks(command: string, args: string[]): boolean {
-  const result = spawnSync(command, args, { stdio: "ignore" });
-  return result.status === 0;
+  return commandSucceeds(command, args);
 }
 
 function isPositiveNumber(value: string): boolean {

@@ -19,6 +19,8 @@
 
 ## 安装（macOS）
 
+Windows 用户请跳到下一节「安装（Windows，测试版）」。
+
 从 GitHub 下载**本目录对应的仓库**并解压。不要下载外层私人项目文件夹。首次安装按顺序：
 
 1. 双击 `安装.command`（macOS 首次拦截时，在 Finder 右键选择“打开”）。选择“本地转写”或“仅云端”。
@@ -32,9 +34,25 @@
 
 纯云端 + DeepSeek 的最小路径只需要 Node.js、npm 和项目的 Node 依赖；不需要 Python、FunASR 模型或 ffmpeg。但云端转写会把录音发送到火山，邀请 DeepSeek 发言会把相关文本发送到 DeepSeek。两项服务都需要用户自己的 Key，且可能计费。未填写任何 Key 仍可用本地文件转写；不会自动调用云端 AI。
 
+## 安装（Windows，测试版）
+
+Windows 支持是后补的测试版，还没有在真人 Windows 电脑上完整验收。遇到问题欢迎提 issue，附上窗口里的报错文字。
+
+1. 在 GitHub 页面点绿色 `Code` → `Download ZIP`，解压到一个路径较短的文件夹（例如 `D:\ai-meeting-workstation`）。不要直接在压缩包里双击运行。
+2. 先装好 [Node.js](https://nodejs.org/) 22 或 24（选 LTS 长期支持版）。如果要用本地转写，再装 [Python 3.13](https://www.python.org/downloads/windows/)，安装第一页务必勾选 `Add python.exe to PATH`。
+3. 双击 `安装-Windows.bat`。如果 Windows 弹出“Windows 已保护你的电脑”，点“更多信息”→“仍要运行”。选择“本地转写”或“仅云端”。
+4. 本地路线需要 ffmpeg；缺少时安装器会询问，你输入 `y` 后用 Windows 自带的 winget 执行 `winget install Gyan.FFmpeg`。没有 winget 时按提示手动安装。随后创建 `.venv\`、安装 `requirements.txt` 里的 Python 依赖，并下载 5 个模型到 `.modelscope_cache\`。云端路线跳过这些步骤。
+5. 看到“安装完成”后，双击 `启动会议纪要-Windows.bat`，浏览器会自动打开工作台。关闭这个黑色窗口，或在里面按回车，就会停止服务。
+
+Windows 与 macOS 的差别：
+
+- 本地转写在 Windows 上用 CPU 计算，没有 Apple Silicon 的 MPS 加速，长录音会明显更慢；赶时间可改用“火山录音文件识别（云端）”。
+- 安装器只使用 `requirements.txt` 中固定的直接依赖，完整依赖锁目前只有 macOS Apple Silicon 版本。
+- 仓库里的 `.command` 文件只给 macOS 用，Windows 用户忽略即可。
+
 ## 一键启动
 
-安装成功后双击 `启动会议纪要.command`，它会检查 5173/8787 端口、启动服务并打开浏览器。若仅用云端，`npm run doctor` 对缺少本地 FunASR、Codex CLI 的提示是可选功能警告，不是安装失败。
+安装成功后双击 `启动会议纪要.command`（Windows 为 `启动会议纪要-Windows.bat`），它会检查 5173/8787 端口、启动服务并打开浏览器。若仅用云端，`npm run doctor` 对缺少本地 FunASR、Codex CLI 的提示是可选功能警告，不是安装失败。
 
 本地敏感数据写在 `.local-data/` 和 `.env`，都已被 `.gitignore` 排除。公开版默认 AI 大脑是 DeepSeek；Claude/Codex CLI 不会自动启用，只适用于使用者主动选择并使用自己的本地订阅。分发版本不得携带开发者 token。
 
@@ -83,7 +101,7 @@ FUNASR_HOTWORD_FILE=config/hotwords/active.txt
 
 该值是“转写计算可运行的最长时间”，不是限制录音时长。不建议完全取消超时，否则异常卡死的模型进程可能永久占用资源。
 
-安装器默认把 `.venv/` 与 `.modelscope_cache/` 放在本仓库根目录，应用会优先使用它们；旧版外层目录的缓存仅作兼容。`FUNASR_PYTHON_PATH` 可以是 PATH 中的 Python 命令，也可以是虚拟环境解释器的绝对路径；留空时优先使用本目录 `.venv/bin/python`。`FUNASR_HOME` 指向包含 `.modelscope_cache` 的目录。`FUNASR_DEVICE=auto` 会在 Apple Silicon Mac 上优先使用 MPS，其他环境自动回退 CPU。
+安装器默认把 `.venv/` 与 `.modelscope_cache/` 放在本仓库根目录，应用会优先使用它们；旧版外层目录的缓存仅作兼容。`FUNASR_PYTHON_PATH` 可以是 PATH 中的 Python 命令，也可以是虚拟环境解释器的绝对路径；留空时优先使用本目录 `.venv/bin/python`（Windows 为 `.venv\Scripts\python.exe`），都没有时使用 PATH 中的 `python3`（Windows 为 `python`）。`FUNASR_HOME` 指向包含 `.modelscope_cache` 的目录。`FUNASR_DEVICE=auto` 会在 Apple Silicon Mac 上优先使用 MPS，其他环境自动回退 CPU。
 
 FunASR 会在每次文件转写时读取 `FUNASR_HOTWORD_FILE`。默认词表位于 `config/hotwords/active.txt`，其中只有可公开的通用示例。可以直接修改它：每行一个词，保存为 UTF-8 后重新转写；也可新建另一份词表并把环境变量指向它，无需修改代码。不要把客户隐私词表提交到 Git。格式见 `config/hotwords/README.md`。
 
@@ -136,6 +154,8 @@ VOLCENGINE_ASR_ENDPOINT=wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_asyn
 ```bash
 rm -rf .local-data
 ```
+
+Windows 可直接在资源管理器里删除 `.local-data` 文件夹。
 
 `.local-data/` 已在 `.gitignore` 中，不应提交真实录音、数据库或 `.env`。
 

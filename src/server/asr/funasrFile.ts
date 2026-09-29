@@ -1,9 +1,9 @@
-import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DiscussionRepository } from "../discussions/repository";
 import type { StoragePaths } from "../storage/paths";
+import { commandSucceeds, defaultPythonCommand, spawnCommand, stopProcessTree } from "../process/platformCommand";
 
 export type FunasrUploadResult = {
   transcript: string;
@@ -42,7 +42,7 @@ export class FunasrFileTranscriber {
     },
     config: FunasrFileTranscriberConfig = {}
   ) {
-    this.pythonPath = config.pythonPath ?? "python3";
+    this.pythonPath = config.pythonPath ?? defaultPythonCommand();
     this.scriptPath =
       config.scriptPath ?? fileURLToPath(new URL("../../../scripts/transcribe_audio.py", import.meta.url));
     this.asrHome = config.asrHome ?? process.cwd();
@@ -146,19 +146,22 @@ export class FunasrFileTranscriber {
       if (this.hotwordFile) {
         args.push("--hotword-file", this.hotwordFile);
       }
-      const child = spawn(this.pythonPath, args);
+      // Windows 默认按系统代码页（中文系统是 GBK）输出，这里统一成 UTF-8，和下方按 UTF-8 解码对齐。
+      const child = spawnCommand(this.pythonPath, args, {
+        env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+      });
       let stderr = "";
       let stdout = "";
       let timedOut = false;
       const timeout = setTimeout(() => {
         timedOut = true;
-        child.kill("SIGTERM");
+        stopProcessTree(child);
       }, this.timeoutMs);
 
-      child.stdout.on("data", (chunk: Buffer) => {
+      child.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString("utf8");
       });
-      child.stderr.on("data", (chunk: Buffer) => {
+      child.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString("utf8");
       });
       child.on("error", (error) => {
@@ -188,7 +191,7 @@ async function BunLikeWriteFile(path: string, data: Buffer): Promise<void> {
 
 function isRunnablePython(command: string): boolean {
   if (command.includes("/") || command.includes("\\")) return existsSync(command);
-  return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
+  return commandSucceeds(command, ["--version"]);
 }
 
 function safeFilename(value: string): string {

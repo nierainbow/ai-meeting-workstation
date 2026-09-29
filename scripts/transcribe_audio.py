@@ -99,7 +99,7 @@ def convert_to_wav(source: Path, wav_path: Path) -> None:
         "s16",
         str(wav_path),
     ]
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         raise SystemExit(f"ffmpeg conversion failed:\n{proc.stderr}")
 

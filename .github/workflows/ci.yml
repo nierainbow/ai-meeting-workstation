@@ -8,7 +8,11 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,3 +37,33 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # 模拟 Windows 用户走「仅云端」路线：跑 Windows 安装器，再用启动器自检前后端能否打开。
+  windows-launcher:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run Windows installer (cloud mode)
+        shell: powershell
+        env:
+          MEETING_INSTALL_MODE: cloud
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1
+
+      - name: Run Windows launcher smoke test
+        shell: powershell
+        env:
+          MEETING_LAUNCHER_SMOKE: "1"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\start.ps1
+
+      - name: Show launcher logs on failure
+        if: failure()
+        shell: powershell
+        run: Get-ChildItem .local-data -Filter "launcher-*.log" | ForEach-Object { "=== $($_.Name)"; Get-Content $_.FullName -Tail 50 }

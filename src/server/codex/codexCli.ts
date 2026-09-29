@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import { buildDiscussionTurnPrompt, buildInitialDiscussionPrompt, type CodexProvider, type CodexTurnInput, type CreateCodexThreadInput } from "./provider";
 import { extractThreadId, parseCodexJsonl } from "./codexJsonl";
+import { spawnCommand, stopProcessTree } from "../process/platformCommand";
 
 type CodexCliConfig = {
   cliPath: string;
@@ -61,7 +61,7 @@ export class CodexCliProvider implements CodexProvider {
     const commandArgs = this.config.model ? [...args.slice(0, 1), "--model", this.config.model, ...args.slice(1)] : args;
 
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.cliPath, commandArgs, {
+      const child = spawnCommand(this.config.cliPath, commandArgs, {
         cwd: input.cwd,
         stdio: ["pipe", "pipe", "pipe"]
       });
@@ -71,13 +71,13 @@ export class CodexCliProvider implements CodexProvider {
       let timedOut = false;
       const timeout = setTimeout(() => {
         timedOut = true;
-        child.kill("SIGTERM");
+        stopProcessTree(child);
       }, this.config.timeoutMs);
 
-      child.stdout.on("data", (chunk: Buffer) => {
+      child.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString("utf8");
       });
-      child.stderr.on("data", (chunk: Buffer) => {
+      child.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString("utf8");
       });
       child.on("error", (error: NodeJS.ErrnoException) => {
@@ -102,7 +102,7 @@ export class CodexCliProvider implements CodexProvider {
         resolve(parseCodexJsonl(stdout));
       });
 
-      child.stdin.end(input.prompt);
+      child.stdin?.end(input.prompt);
     });
   }
 
@@ -110,7 +110,7 @@ export class CodexCliProvider implements CodexProvider {
     const commandArgs = this.config.model ? [...args.slice(0, 1), "--model", this.config.model, ...args.slice(1)] : args;
 
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.cliPath, commandArgs, {
+      const child = spawnCommand(this.config.cliPath, commandArgs, {
         cwd: input.cwd,
         stdio: ["pipe", "pipe", "pipe"]
       });
@@ -123,14 +123,14 @@ export class CodexCliProvider implements CodexProvider {
       let cleanupTimer: NodeJS.Timeout | undefined;
       const timeout = setTimeout(() => {
         timedOut = true;
-        child.kill("SIGTERM");
+        stopProcessTree(child);
       }, this.config.timeoutMs);
 
       const resolveThread = (threadId: string) => {
         if (settled) return;
         settled = true;
         clearTimeout(timeout);
-        cleanupTimer = setTimeout(() => child.kill("SIGTERM"), this.config.timeoutMs);
+        cleanupTimer = setTimeout(() => stopProcessTree(child), this.config.timeoutMs);
         cleanupTimer.unref();
         resolve(threadId);
       };
@@ -142,7 +142,7 @@ export class CodexCliProvider implements CodexProvider {
         reject(error);
       };
 
-      child.stdout.on("data", (chunk: Buffer) => {
+      child.stdout?.on("data", (chunk: Buffer) => {
         const text = chunk.toString("utf8");
         stdout += text;
         stdoutRemainder += text;
@@ -157,7 +157,7 @@ export class CodexCliProvider implements CodexProvider {
           }
         }
       });
-      child.stderr.on("data", (chunk: Buffer) => {
+      child.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString("utf8");
       });
       child.on("error", (error: NodeJS.ErrnoException) => {
@@ -190,7 +190,7 @@ export class CodexCliProvider implements CodexProvider {
         rejectOnce(new Error("Codex CLI 未返回 thread_id。"));
       });
 
-      child.stdin.end(input.prompt);
+      child.stdin?.end(input.prompt);
     });
   }
 }

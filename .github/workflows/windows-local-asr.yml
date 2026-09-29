@@ -1,0 +1,60 @@
+name: Windows local ASR
+
+# 在 Windows 上完整走一遍「本地转写」：安装 Python 依赖、下载 5 个模型、用仓库自带的演示音频真实转写。
+# 需要下载数 GB，耗时较长，所以只在相关文件变化或手动触发时运行，不影响主 CI。
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - requirements.txt
+      - scripts/transcribe_audio.py
+      - scripts/download_funasr_models.py
+      - scripts/windows/**
+      - .github/workflows/windows-local-asr.yml
+
+jobs:
+  local-asr:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ffmpeg
+        shell: powershell
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { choco install ffmpeg -y --no-progress }
+
+      - name: Run Windows installer (local mode)
+        shell: powershell
+        env:
+          MEETING_INSTALL_MODE: local
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + $env:Path
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1
+
+      - name: Transcribe the bundled demo audio on CPU
+        shell: powershell
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + $env:Path
+          $env:PYTHONUTF8 = "1"
+          $out = Join-Path $env:RUNNER_TEMP "asr-output"
+          .\.venv\Scripts\python.exe scripts\transcribe_audio.py --input assets\demo\chengyuan-tech-fallback-open-kokoro.wav --output-dir $out --asr-home . --device cpu --speaker-diarization
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $transcript = Get-Content (Join-Path $out "transcript.txt") -Raw -Encoding UTF8
+          if (-not $transcript.Trim()) { Write-Error "transcript.txt is empty"; exit 1 }
+          Write-Host "Transcript characters: $($transcript.Length)"
+          Get-Content (Join-Path $out "transcript.txt") -TotalCount 5 -Encoding UTF8

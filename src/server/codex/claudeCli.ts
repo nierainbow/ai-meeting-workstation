@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import { buildDiscussionTurnPrompt, type CodexProvider, type CodexTurnInput, type CreateCodexThreadInput } from "./provider";
+import { spawnCommand, stopProcessTree } from "../process/platformCommand";
 
 type ClaudeCliConfig = {
   cliPath: string;
@@ -26,26 +26,26 @@ export class ClaudeCliProvider implements CodexProvider {
   async completePrompt(input: { prompt: string; cwd?: string }): Promise<string> {
     const args = ["-p", "--model", this.config.model, "--no-session-persistence"];
     if (this.config.fallbackModel) args.push("--fallback-model", this.config.fallbackModel);
-    args.push(input.prompt);
-    return runCli(this.config.cliPath, args, this.config.timeoutMs, "Claude CLI");
+    // 提示词走 stdin：避免命令行长度上限，Windows 经 cmd.exe 启动时也不会被转义规则破坏。
+    return runCli(this.config.cliPath, args, input.prompt, this.config.timeoutMs, "Claude CLI");
   }
 }
 
-function runCli(command: string, args: string[], timeoutMs: number, label: string): Promise<string> {
+function runCli(command: string, args: string[], stdin: string, timeoutMs: number, label: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCommand(command, args, { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGTERM");
+      stopProcessTree(child);
     }, timeoutMs);
 
-    child.stdout.on("data", (chunk: Buffer) => {
+    child.stdout?.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf8");
     });
-    child.stderr.on("data", (chunk: Buffer) => {
+    child.stderr?.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
     });
     child.on("error", (error: NodeJS.ErrnoException) => {
@@ -73,6 +73,8 @@ function runCli(command: string, args: string[], timeoutMs: number, label: strin
       }
       resolve(text);
     });
+
+    child.stdin?.end(stdin);
   });
 }
 
