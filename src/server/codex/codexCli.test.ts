@@ -90,6 +90,10 @@ function createFakeCodexCli(jsonl: string, argsPath: string, afterWriteScript = 
     ].join("\n")
   );
   chmodSync(cliPath, 0o755);
+  // Windows 无法直接执行带 shebang 的脚本，补一个和 npm 安装的 CLI 同样形态的 .cmd 包装。
+  if (process.platform === "win32") {
+    writeFileSync(`${cliPath}.cmd`, '@node "%~dp0codex" %*\r\n');
+  }
   return cliPath;
 }
 

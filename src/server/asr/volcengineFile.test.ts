@@ -7,8 +7,11 @@ import { DiscussionRepository } from "../discussions/repository";
 import { VolcengineFileTranscriber, mapVolcengineFileError, normalizeVolcengineFileSpeaker } from "./volcengineFile";
 
 const tempDirs: string[] = [];
+const openDatabases: Array<ReturnType<typeof openDatabase>> = [];
 
 afterEach(() => {
+  // Windows 不允许删除仍被 SQLite 打开的文件，先关库再清理临时目录。
+  for (const db of openDatabases.splice(0)) db.close();
   for (const path of tempDirs.splice(0)) rmSync(path, { recursive: true, force: true });
 });
 
@@ -116,7 +119,9 @@ function createFixture() {
     databasePath: join(tempDir, "test.db"),
     discussionsDir: join(tempDir, "discussions")
   };
-  const repository = new DiscussionRepository(openDatabase(storagePaths.databasePath));
+  const db = openDatabase(storagePaths.databasePath);
+  openDatabases.push(db);
+  const repository = new DiscussionRepository(db);
   const discussion = repository.createDiscussion({
     title: "文件转写测试",
     topic: "文件转写测试",

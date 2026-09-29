@@ -23,12 +23,13 @@ let baseUrl: string;
 let mockAsrStarts: string[];
 let repository: DiscussionRepository;
 let codexProvider: CodexProvider;
+let db: ReturnType<typeof openDatabase>;
 
 beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "discussion-routes-"));
   mockAsrStarts = [];
 
-  const db = openDatabase(join(tempDir, "test.db"));
+  db = openDatabase(join(tempDir, "test.db"));
   repository = new DiscussionRepository(db);
   const storagePaths = {
     dataDir: tempDir,
@@ -87,6 +88,8 @@ afterEach(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+  // Windows 不允许删除仍被 SQLite 打开的文件，先关库再清理临时目录。
+  db.close();
   rmSync(tempDir, { recursive: true, force: true });
 });
 
