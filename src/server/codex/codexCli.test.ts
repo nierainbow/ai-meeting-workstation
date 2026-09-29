@@ -11,9 +11,17 @@ beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), "codex-cli-"));
 });
 
-afterEach(() => {
-  // Windows 上被测 CLI 的进程树退出稍慢，目录可能短暂被占用，允许重试。
-  rmSync(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+afterEach(async () => {
+  // Windows 上被测 CLI 的进程树退出稍慢，目录可能短暂被占用；rmSync 自带的 maxRetries 在部分 Node 版本上不生效，这里自己重试。
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EBUSY" || attempt >= 50) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
 });
 
 describe("CodexCliProvider", () => {
