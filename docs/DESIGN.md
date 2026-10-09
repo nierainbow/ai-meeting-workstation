@@ -261,12 +261,99 @@ data/
 └── speakers/                 # 声纹库（二期）
 ```
 
-## 10. 二期路线
+## 10. SOP v4.1 十一步法到代码的映射
 
-1. **前端导出按钮**：React UI 加"导出纪要"入口
-2. **sherpa-onnx 实测**：跑真实录音对比 CER
-3. **Qwen3-ASR 下载**：4GB 模型，开阶段 2 校准
-4. **声纹库**：resemblyzer + 两阶段交付
+杰思现有工作系统（依赖元宝录音）的每一步，在本 app 里都有对应实现：
+
+| SOP 步骤 | 现有工作系统 | 本 app 对应模块 |
+|---|---|---|
+| Step 0 读项目规范 | 人工读 WORKSPACE_SPEC.md | 启动时加载 `config/` 下配置 |
+| Step 1-3 拉元宝链接 | `extract_yuanbao_v3.py` | **`scripts/import_yuanbao.py`**（本次新增） |
+| Step 4A 标准模式说话人推断 | Agent 人工推断 | 上游 FunASR cam++ 自动分离 + 手动校正 UI |
+| Step 4B 声纹模式阶段一 | 同 4A | 同上（声纹后置） |
+| Step 5 五项完整性校验 | Agent 人工执行 | **`minutes/checklist.ts`** 自动跑 |
+| Step 6 双文件输出 | Agent 手工拆分模板 | **`minutes/deliverable.ts` + `archive.ts`** 自动渲染 |
+| Step 7 名称校对 | 人工查参考表 | **`proofread/corrector.ts`** 自动扫描 + 存疑 |
+| Step 8 本地归档 + 飞书 | Agent 写文件 + lark-cli | 本地自动落盘；飞书归档二期接 lark SDK |
+| Step 9 知识图谱回写 | 人工 | 三期 |
+| Step 10 声纹后置回填 | `extract_yuanbao_voiceprint.py` | 二期接 resemblyzer |
+
+## 11. 元宝导入路径（兼容现有工作流）
+
+用户现在的工作流是"贴元宝链接 → Agent 整理"。本 app 保留这条路径：
+
+```
+UI 粘贴元宝链接
+  ↓
+POST /api/import/yuanbao  { url, cookie? }
+  ↓
+Node spawn scripts/import_yuanbao.py
+  ↓
+拉页面 → 解析 __NEXT_DATA__ → 输出 transcript.txt + speaker_segments.json + yuanbao_meta.json
+  ↓
+走和本地上传录音完全相同的 pipeline：
+  proofread → checklist → todos → 双 MD 交付
+```
+
+**关键兼容点**：
+- 元宝已经做好的说话人区分（isSplitSpeaker）直接用，不重跑 ASR
+- 元宝的 AI 摘要（voiceMinutes）作为 `minutes/templates.ts` 的输入参考
+- 本地 SenseVoice/FunASR 转写只用于没有元宝链接的场景（自己录音、本地文件）
+
+## 12. 独立 .app 打包方案
+
+### 12.1 目标
+
+最终交付一个 `AI Meeting Mate.app`，拖到 Applications 双击即用，不需要用户装 Node/Python。
+
+### 12.2 打包分层
+
+```
+AI Meeting Mate.app
+└── Contents/
+    ├── MacOS/
+    │   └── AI Meeting Mate          # 启动器（Node SEA 或 Electron 主进程）
+    ├── Resources/
+    │   ├── app.asar                  # Node server + client build
+    │   ├── python/
+    │   │   ├── transcribe_audio      # PyInstaller 打的 FunASR sidecar
+    │   │   ├── transcribe_sherpa     # PyInstaller 打的 sherpa-onnx sidecar
+    │   │   └── import_yuanbao       # PyInstaller 打的元宝导入
+    │   ├── models/
+    │   │   ├── sense-voice/         # 239MB，首次启动从 Type4Me 软链或下载
+    │   │   ├── silero_vad/
+    │   │   └── (可选) qwen3-asr/    # 4GB，用户按需下载
+    │   └── config/
+    │       ├── hotwords/jiesi.txt
+    │       └── proofread/jiesi.json
+    └── Info.plist
+```
+
+### 12.3 技术选型
+
+| 层 | 选型 | 理由 |
+|---|---|---|
+| 桌面壳 | **Electron**（首选）或 Tauri | 已有 React SPA，Electron 最快落地 |
+| Node server | Node SEA（Single Executable Application） | 官方原生，无外部依赖 |
+| Python sidecar | **PyInstaller --onefile** | 把 sherpa-onnx/funasr 依赖全打进去 |
+| 模型 | 不打进安装包（太大） | 首次启动引导用户选择：软链 Type4Me / 重新下载 |
+
+### 12.4 首次启动引导
+
+1. 检测 `~/Library/Application Support/Type4Me/models/` 是否存在
+2. 存在 → 软链 SenseVoice + silero_vad，零下载
+3. 不存在 → 弹窗引导下载（~250MB SenseVoice int8）
+4. 可选下载 Qwen3-ASR（4GB，高准确率模式）
+
+## 13. 二期路线
+
+1. **前端导出按钮**：✅ 已完成
+2. **Node 元宝导入路由**：POST /api/import/yuanbao + UI 粘贴入口
+3. **sherpa-onnx 实测**：跑真实录音对比 CER
+4. **Qwen3-ASR 下载**：4GB 模型，开阶段 2 校准
+5. **声纹库**：resemblyzer + 两阶段交付（SOP Step 10）
+6. **飞书归档**：接 lark SDK，按本地路径映射飞书文件夹
+7. **PyInstaller + Electron 打包 .app**
 5. **本地 LLM**：Ollama 默认 brainProvider
 6. **CER 评测脚本**：量化 FunASR vs SenseVoice vs 元宝
 7. **PyInstaller 打包 .app**
