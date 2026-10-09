@@ -938,6 +938,13 @@ export function App() {
               <small>默认推荐火山录音文件识别 2.0；也可以选择本地 FunASR。</small>
             </article>
             <article className="task-entry-card live-secondary">
+              <span className="task-index">02 · YUANBAO IMPORT</span>
+              <h2>元宝链接导入</h2>
+              <p>粘贴腾讯元宝录音分享链接，自动拉取转写并生成纪要。</p>
+              <YuanbaoImportForm disabled={isTaskBusy} onImported={handleOpenDiscussion} />
+              <small>适合已经用元宝录过、不想重复转写的会议。</small>
+            </article>
+            <article className="task-entry-card live-secondary">
               <span className="task-index">02 · LIVE MEETING</span>
               <h2>实时会议助手</h2>
               <p>现场录音、实时转写，并可在讨论中邀请 AI 参与。</p>
@@ -2275,4 +2282,48 @@ function float32ToPcm16(input: Float32Array, sourceSampleRate: number, targetSam
   }
 
   return output;
+}
+
+function YuanbaoImportForm({ disabled, onImported }: { disabled: boolean; onImported: (id: string) => void }) {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/demo/import/yuanbao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "导入失败");
+      onImported(data.discussionId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <input
+        type="url"
+        placeholder="https://yuanbao.tencent.com/e/rm/..."
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        disabled={disabled || busy}
+        style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 14 }}
+      />
+      <button type="submit" disabled={disabled || busy || !url.trim()}>
+        {busy ? "导入中..." : "导入并生成纪要"}
+      </button>
+      {error && <small style={{ color: "#c00" }}>{error}</small>}
+    </form>
+  );
 }

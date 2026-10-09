@@ -196,6 +196,10 @@ app.use(
 
 app.use("/api/demo/minutes", createMinutesRouter({ repository: demoRepository, configDir: resolve("config") }));
 
+// 元宝导入 sidecar 路由
+import { createImportRouter } from "./import/routes";
+app.use("/api/demo/import", createImportRouter({ repository: demoRepository, scriptsDir: resolve("scripts") }));
+
 app.use(
   "/api/discussions",
   createDiscussionRouter({
