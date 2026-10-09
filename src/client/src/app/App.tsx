@@ -25,6 +25,8 @@ import {
   draftMemory,
   discussionMarkdownExportUrl,
   discussionPackageExportUrl,
+  minutesDeliverableUrl,
+  minutesArchiveUrl,
   endDiscussion,
   getAppConfig,
   getCustomer,
@@ -476,7 +478,7 @@ export function App() {
       setAsrStatus("idle");
       setAsrDiagnostics(initialAsrDiagnostics);
       setIsSettingsOpen(false);
-      setLocalStatus("演示空间已重置，只保留澄远科技的干净初始档案。");
+      setLocalStatus("演示空间已重置，只保留示例客户的干净初始档案。");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "演示空间重置失败。");
     } finally {
@@ -916,7 +918,7 @@ export function App() {
       {isDemoMode ? (
         <section className="demo-boundary-banner" role="status">
           <strong>当前为演示模式</strong>
-          <span>澄远科技及参会人均为虚构数据；会议、录音和记忆只写入独立演示空间。</span>
+          <span>示例客户及参会人均为演示数据；会议、录音和记忆只写入独立演示空间。</span>
         </section>
       ) : null}
 
@@ -1049,6 +1051,8 @@ export function App() {
                 <h2>结果操作</h2>
                 <a href={discussionMarkdownExportUrl(discussion.id, workspaceScope)}>导出 Markdown</a>
                 <a href={discussionPackageExportUrl(discussion.id, workspaceScope)}>导出讨论包</a>
+                <a href={minutesDeliverableUrl(discussion.id, "general", workspaceScope)} title="干净交付件，可直接发给参会人">导出会议纪要</a>
+                <a href={minutesArchiveUrl(discussion.id, "general", workspaceScope)} title="含存疑与校验结果，自己存档">导出存档包</a>
                 <button type="button" disabled={isInvitingCodex} onClick={handleInviteCodex}>{isInvitingCodex ? "AI 正在整理" : "让 AI 整理会议纪要"}</button>
                 <button type="button" disabled={isTaskBusy} onClick={() => { setDiscussion(null); setSelectedAudioFile(null); setFileTranscriptionName(""); setErrorMessage(null); setLocalStatus(null); }}>重新上传录音</button>
               </aside>
@@ -1891,6 +1895,8 @@ function HiddenSettings(props: {
             ) : null}
             <a href={discussionMarkdownExportUrl(discussion.id, workspaceScope)}>导出 Markdown</a>
             <a href={discussionPackageExportUrl(discussion.id, workspaceScope)}>导出讨论包</a>
+            <a href={minutesDeliverableUrl(discussion.id, "general", workspaceScope)} title="干净交付件，可直接发给参会人">导出会议纪要</a>
+            <a href={minutesArchiveUrl(discussion.id, "general", workspaceScope)} title="含存疑与校验结果，自己存档">导出存档包</a>
             {discussion.audioAssets.length > 0 ? (
               <button type="button" onClick={() => void props.onDeleteAudio()}>
                 删除音频

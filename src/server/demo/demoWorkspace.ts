@@ -7,37 +7,37 @@ import type { MemoryStore } from "../memory/memoryStore";
 import type { StoragePaths } from "../storage/paths";
 import type { EventHub } from "../ws/eventHub";
 
-export const DEMO_CUSTOMER_ID = "chengyuan-tech";
+export const DEMO_CUSTOMER_ID = "demo-customer";
 
 const DEMO_CUSTOMER_PROFILE = [
-  "# 澄远科技公司档案（虚构演示数据）",
+  "# 示例客户档案（演示数据）",
   "",
-  "## 公司做什么",
-  "澄远科技是一家为连锁服务企业提供经营数据分析与门店协同软件的虚构公司。",
+  "## 客户做什么",
+  "这是一个用于演示的示例客户档案，展示 AI 会议伴侣如何记录客户会议、沉淀决策与待办。",
   "",
   "## 当前阶段",
-  "公司正在从项目制交付转向标准化产品，重点关注客户续约、交付效率和知识复用。",
+  "正在评估 AI 会议工具在客户会议、内部评审和项目跟进中的落地方式。",
   "",
   "## 核心团队",
-  "- 林岚：运营负责人，关注客户成功与跨部门协同。",
-  "- 周启明：产品负责人，关注产品标准化与实施成本。",
-  "- 陈默：AI 顾问，负责梳理会议知识沉淀与 AI 参谋试点。",
+  "- 主持人：负责组织会议与推进决策。",
+  "- 业务方：负责汇报进展与提出需求。",
+  "- AI 参谋：负责整理纪要、提炼待办与风险提示。",
   "",
-  "## 本次演示目标",
+  "## 演示目标",
   "讨论如何把客户会议中的决策、风险和行动项沉淀为可复用的企业上下文。",
   "",
   "## 演示边界",
-  "本档案及所有人物、业务与数字均为虚构演示数据，不对应任何真实客户。",
+  "本档案及所有人物、业务与数字均为演示数据，不对应任何真实客户。",
   ""
 ].join("\n");
 
 const DEMO_MEETING_BACKGROUND =
-  "澄远科技经营复盘演示：讨论客户续约风险、交付知识沉淀和下一阶段 AI 会议参谋试点。所有企业、人物与业务内容均为虚构演示数据。";
+  "示例客户经营复盘演示：讨论客户续约风险、交付知识沉淀和下一阶段 AI 会议参谋试点。所有企业、人物与业务内容均为演示数据。";
 
 const DEMO_PARTICIPANTS = [
-  { displayName: "林岚（澄远科技·运营负责人）" },
-  { displayName: "周启明（澄远科技·产品负责人）" },
-  { displayName: "陈默（AI 顾问）" }
+  { displayName: "主持人（业务方）" },
+  { displayName: "产品负责人（业务方）" },
+  { displayName: "AI 参谋" }
 ];
 
 export function createDemoStoragePaths(basePaths: StoragePaths): StoragePaths {
@@ -70,7 +70,7 @@ export class DemoWorkspace {
   bootstrap(): DemoBootstrapDto {
     const customer = this.deps.memoryStore.saveCustomer({
       id: DEMO_CUSTOMER_ID,
-      displayName: "澄远科技（虚构）",
+      displayName: "示例客户（演示）",
       profile: DEMO_CUSTOMER_PROFILE,
       recentCount: 5
     });
@@ -85,7 +85,7 @@ export class DemoWorkspace {
       fallbackAudio: {
         available: existsSync(this.deps.fallbackAudioPath),
         filename: basename(this.deps.fallbackAudioPath),
-        label: "澄远科技虚构经营复盘（本地 FunASR）"
+        label: "示例客户经营复盘（本地 FunASR）"
       },
       isolation: {
         database: "separate",

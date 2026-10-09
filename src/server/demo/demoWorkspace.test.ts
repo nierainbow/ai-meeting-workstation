@@ -58,12 +58,12 @@ describe("DemoWorkspace", () => {
         repository.addUtterance({
           discussionId: input.discussionId,
           speakerLabel: "speaker_0",
-          text: "这是澄远科技的虚构演示录音。",
+          text: "这是示例客户的演示录音。",
           isFinal: true,
           source: "funasr"
         });
         return {
-          transcript: "这是澄远科技的虚构演示录音。",
+          transcript: "这是示例客户的演示录音。",
           utteranceCount: 1,
           transcriptPath: join(demoPaths.discussionsDir, input.discussionId, "transcript.txt")
         };
@@ -81,7 +81,7 @@ describe("DemoWorkspace", () => {
     const bootstrap = workspace.bootstrap();
     const discussion = repository.createDiscussion(
       {
-        title: "澄远科技演示会议",
+        title: "示例客户演示会议",
         topic: "经营复盘",
         background: bootstrap.meeting.background,
         projectPath: tempDir,
@@ -107,7 +107,7 @@ describe("DemoWorkspace", () => {
 
     expect(repository.listDiscussionSummaries()).toEqual([]);
     expect(memoryStore.listCustomers().map((customer) => customer.id)).toEqual([DEMO_CUSTOMER_ID]);
-    expect(reset.customer.displayName).toContain("澄远科技");
+    expect(reset.customer.displayName).toContain("示例客户");
     expect(existsSync(realSentinel)).toBe(true);
   });
 });

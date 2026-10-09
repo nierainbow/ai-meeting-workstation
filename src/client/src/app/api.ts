@@ -272,6 +272,14 @@ export function discussionPackageExportUrl(discussionId: string, scope: Workspac
   return scopedApiPath(scope, `/discussions/${discussionId}/export/package`);
 }
 
+export function minutesDeliverableUrl(discussionId: string, scene = "general", scope: WorkspaceDataScope = "normal"): string {
+  return scopedApiPath(scope, `/minutes/${discussionId}/deliverable.md`) + `?scene=${encodeURIComponent(scene)}`;
+}
+
+export function minutesArchiveUrl(discussionId: string, scene = "general", scope: WorkspaceDataScope = "normal"): string {
+  return scopedApiPath(scope, `/minutes/${discussionId}/archive.md`) + `?scene=${encodeURIComponent(scene)}`;
+}
+
 export function bootstrapDemoMode(): Promise<DemoBootstrapDto> {
   return requestJson<DemoBootstrapDto>("/api/demo/bootstrap", { method: "POST" });
 }
