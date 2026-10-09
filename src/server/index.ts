@@ -15,6 +15,7 @@ import { DemoWorkspace, createDemoStoragePaths } from "./demo/demoWorkspace";
 import { createDemoRouter } from "./demo/routes";
 import { createDiscussionRouter } from "./discussions/routes";
 import { DiscussionRepository } from "./discussions/repository";
+import { createMinutesRouter } from "./minutes/minutesRoutes";
 import { MemoryStore } from "./memory/memoryStore";
 import { LocalSettingsStore } from "./settings/localSettings";
 import { ensureStoragePaths } from "./storage/paths";
@@ -193,6 +194,8 @@ app.use(
   })
 );
 
+app.use("/api/demo/minutes", createMinutesRouter({ repository: demoRepository, configDir: resolve("config") }));
+
 app.use(
   "/api/discussions",
   createDiscussionRouter({
@@ -207,6 +210,8 @@ app.use(
     storagePaths
   })
 );
+
+app.use("/api/minutes", createMinutesRouter({ repository, configDir: resolve("config") }));
 
 server.listen(config.port, config.host, () => {
   console.log(`AI Meeting Workstation server listening on http://${config.host}:${config.port}`);
