@@ -72,16 +72,19 @@ def main() -> int:
         "\n".join(sorted(hotwords)) + "\n", encoding="utf-8"
     )
 
-    # Write proofread/jiesi.json
+    # Write proofread/jiesi.json in the format expected by proofread/dictionary.ts:
+    # { version: string, corrections: [{wrong, right, type?, note?}] }
     pr_dir = config_dir / "proofread"
     pr_dir.mkdir(parents=True, exist_ok=True)
-    proofread = {}
+    corrections = []
     for wrong, correct in sorted(snippets.items()):
-        proofread[wrong] = {
-            "correct": correct,
-            "kind": infer_kind(correct),
-            "source": "杰思集团名称校对参考表",
-        }
+        corrections.append({
+            "wrong": wrong,
+            "right": correct,
+            "type": infer_kind(correct),
+            "note": "自动从杰思集团名称校对参考表生成",
+        })
+    proofread = {"version": "auto-generated", "corrections": corrections}
     (pr_dir / "jiesi.json").write_text(
         json.dumps(proofread, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
