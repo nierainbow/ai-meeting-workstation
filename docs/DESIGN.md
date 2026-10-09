@@ -106,6 +106,33 @@
 
 ## 4. ASR 策略
 
+### 4.0 Type4Me 架构深度解析（逆向工程）
+
+Type4Me 的 ASR 不是内嵌在主进程里，而是**独立子进程 + HTTP API**：
+
+```
+Type4Me.app (主进程, Swift)
+  └── spawn qwen3-asr-server (独立 FastAPI 进程)
+        --model-path /Applications/Type4Me.app/Contents/Resources/Models/Qwen3-ASR
+        --port 0                    # 0 = OS 随机分配
+        --hotwords-file .../hotwords.txt
+```
+
+**关键发现**：
+- Qwen3-ASR server 是 PyInstaller 打包的独立二进制：`/Applications/Type4Me.app/Contents/Resources/qwen3-asr-server-dist/qwen3-asr-server`
+- 它监听 `127.0.0.1:<随机端口>`，FastAPI 提供两个接口：
+  - `GET /health` → `{"status":"ok","model_loaded":true}`
+  - `POST /transcribe`（body = raw PCM16-LE 音频）→ `{"text":"..."}`
+- `--port 0` 时 OS 随机分配端口，Type4Me 主进程通过读取子进程 stdout 发现实际端口
+- 模型是标准 HuggingFace safetensors 格式（~4GB），已下载在 `Type4Me.app/Contents/Resources/Models/Qwen3-ASR/`
+- SenseVoice int8 是 sherpa-onnx C++ 库，直接链接在主进程里（不是独立 server）
+
+**我们的集成策略**：
+- **不依赖 Type4Me 是否在跑**：我们自己 spawn 一个 qwen3-asr-server，用**固定端口 18791**
+- **模型路径直接指向 Type4Me.app 里的模型目录**，不复制、不重复下载 4GB
+- 新 sidecar：`scripts/transcribe_qwen_asr.py`
+- Node server 收到 wav 后，ffmpeg 转 16kHz PCM16，POST 到 `http://127.0.0.1:18791/transcribe`
+
 ### 4.1 三档可切换
 
 | 档位 | 引擎 | 模型 | 速度 | 准确率 | 隐私 |
