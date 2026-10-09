@@ -26,8 +26,14 @@ import urllib.request
 import wave
 from pathlib import Path
 
-DEFAULT_SERVER = "/Applications/Type4Me.app/Contents/Resources/qwen3-asr-server-dist/qwen3-asr-server"
-DEFAULT_MODEL = "/Applications/Type4Me.app/Contents/Resources/Models/Qwen3-ASR"
+import os
+
+# Mac: reuse Type4Me.app's bundled server+model if present; Windows: user must set
+_DEFAULT_SERVER_MAC = "/Applications/Type4Me.app/Contents/Resources/qwen3-asr-server-dist/qwen3-asr-server"
+_DEFAULT_MODEL_MAC = "/Applications/Type4Me.app/Contents/Resources/Models/Qwen3-ASR"
+
+DEFAULT_SERVER = os.environ.get("QWEN_ASR_SERVER", _DEFAULT_SERVER_MAC if os.path.exists(_DEFAULT_SERVER_MAC) else "")
+DEFAULT_MODEL = os.environ.get("QWEN_ASR_MODEL", _DEFAULT_MODEL_MAC if os.path.exists(_DEFAULT_MODEL_MAC) else "")
 
 
 def parse_args() -> argparse.Namespace:

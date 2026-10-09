@@ -384,3 +384,101 @@ AI Meeting Mate.app
 5. **本地 LLM**：Ollama 默认 brainProvider
 6. **CER 评测脚本**：量化 FunASR vs SenseVoice vs 元宝
 7. **PyInstaller 打包 .app**
+
+## 14. Type4Me 客户端架构吸纳
+
+> 源码已 fork：`nierainbow/type4me`（上游 joewongjc/type4me）
+> 以下架构分析基于本地 Type4Me.app 逆向 + 运行时进程观察。
+
+### 14.1 Type4Me 整体架构
+
+```
+Type4Me.app (Swift 主进程, macOS only)
+├── 菜单栏 UI / 快捷键监听 / 录音控制
+├── sherpa-onnx SenseVoice int8（C++ 内嵌，流式识别）
+├── 启动子进程 qwen3-asr-server（PyInstaller 打包, Python 3.12）
+│   ├── MLX 后端跑 Qwen3-ASR（Apple Silicon GPU 加速）
+│   ├── llama.cpp 跑本地 LLM 后处理（/v1/chat/completions）
+│   └── FastAPI: POST /transcribe, GET /health
+├── 配置文件 ~/Library/Application Support/Type4Me/
+│   ├── hotwords.txt          # 热词（一行一词）
+│   ├── modes.json            # 处理模式（不同 prompt）
+│   ├── snippets.json         # 快捷文本
+│   └── history.db            # SQLite 历史
+└── 输出：识别结果直接注入当前输入框（macOS Accessibility API）
+```
+
+### 14.2 值得吸纳的设计
+
+| Type4Me 设计 | 在本项目的落地 |
+|---|---|
+| **两段式 ASR**：SenseVoice 流式预览 + Qwen3-ASR 校准 | 已纳入 4.0 节，文件转写直接用 Qwen3-ASR |
+| **模式系统（modes.json）**：不同场景用不同 LLM prompt | `minutes/templates.ts` 的 6 种场景 = 6 种 prompt |
+| **热词文件 hotwords.txt**：一行一词，启动时传给 ASR | 已复用 `config/hotwords/jiesi.txt`（208 条） |
+| **ASR server 独立进程**：主进程不加载模型，spawn 子进程 | 我们的 Python sidecar 同款设计，Node 通过 HTTP/文件交互 |
+| **流式 confirmed/partial**：实时出字 | 上游 WebSocket 已有，文件转写场景不需要 |
+| **LLM 后处理润色**：语音识别后用 LLM 做口语→书面语 | 二期接本地 LLM（Ollama），吸纳 modes.json 里的润色 prompt |
+| **配置目录用户态**：模型/热词/历史都在 ~/Library/... | 跨平台后改成 `~/.ai-meeting-mate/`（Mac）/ `%APPDATA%/ai-meeting-mate/`（Win） |
+
+### 14.3 不照搬的部分
+
+| Type4Me 设计 | 原因 |
+|---|---|
+| Swift 主进程 + macOS Accessibility | 我们要跨平台，用 Electron + React |
+| 注入输入框 | 我们是会议场景，不是输入法 |
+| 快捷键全局监听 | 二期可加，不是核心 |
+| MLX 后端 | Apple Silicon 专属，Windows/Linux 用 PyTorch |
+
+## 15. Windows 跨平台兼容
+
+### 15.1 原则
+
+- **不硬编码任何 macOS 路径**（`/Applications/...`、`~/Library/...`）
+- 所有模型路径、配置路径通过启动参数或配置文件指定
+- Python sidecar 在 Windows 上用 PyInstaller 重新打包
+- Electron 主进程跨平台编译
+
+### 15.2 模型路径配置（跨平台）
+
+| 模型 | Mac 默认路径 | Windows 默认路径 |
+|---|---|---|
+| SenseVoice int8 | 自动下载到 `~/.ai-meeting-mate/models/` | 同左（`%USERPROFILE%\.ai-meeting-mate\models\`） |
+| Qwen3-ASR (MLX) | `/Applications/Type4Me.app/.../Qwen3-ASR`（可选软链） | Windows 无 MLX，需下载 PyTorch 版或用 llama.cpp GGUF |
+| silero_vad | 自动下载 | 同左 |
+| 热词 | `config/hotwords/jiesi.txt` | 同左 |
+
+### 15.3 ASR 引擎跨平台矩阵
+
+| 引擎 | Mac | Windows | 说明 |
+|---|---|---|---|
+| sherpa-onnx SenseVoice int8 | ✅ | ✅ | sherpa-onnx 官方支持 Windows CPU |
+| Qwen3-ASR (MLX) | ✅ Apple Silicon | ❌ | Mac 专属 |
+| Qwen3-ASR (PyTorch) | ✅ | ✅ | 跨平台，CPU 慢但可用 |
+| Qwen3-ASR (llama.cpp GGUF) | ✅ | ✅ | 跨平台，推荐 Windows 用这个 |
+| FunASR paraformer | ✅ | ✅ | Python 跨平台 |
+| faster-whisper large-v3 | ✅ | ✅ | CTranslate2，跨平台 CPU/GPU |
+
+**Windows 默认引擎**：sherpa-onnx SenseVoice int8（最快最省），可选 faster-whisper large-v3。
+
+### 15.4 配置目录
+
+```
+跨平台配置根目录（通过 appdirs 库自动选择）：
+  Mac:    ~/Library/Application Support/AI Meeting Mate/
+  Win:    %APPDATA%\AI Meeting Mate\
+  Linux:  ~/.config/ai-meeting-mate/
+
+结构：
+  models/          # ASR 模型
+  config/          # 热词、校对词表
+  data/            # 会议数据
+  logs/
+```
+
+### 15.5 打包目标
+
+| 平台 | 格式 | 工具 |
+|---|---|---|
+| Mac | .dmg / .app | electron-builder |
+| Windows | .exe / .msix | electron-builder + PyInstaller (win64) |
+| Linux | .AppImage / .deb | electron-builder（可选） |
