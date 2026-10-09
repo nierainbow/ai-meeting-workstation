@@ -1,53 +1,477 @@
 {
-  "version": "1.0",
-  "_comment": "杰思集团高频语音识别错误表。从《会议录音处理SOP v4.1 §7.2》和 meeting-agent/minutes.py _EXTRA_CORRECTIONS 吸纳。每条 wrong 会被自动替换为 right；替换记录进存档包，不进交付件。",
-  "corrections": [
-    { "wrong": "华星科技", "right": "华鑫科技", "type": "同音/形近", "note": "最高频错误。华鑫科技是龙电华鑫旗下销售公司" },
-    { "wrong": "华新铜箔", "right": "华鑫铜箔", "type": "形近", "note": "" },
-    { "wrong": "华心铜箔", "right": "华鑫铜箔", "type": "形近", "note": "" },
-    { "wrong": "华欣铜箔", "right": "华鑫铜箔", "type": "形近", "note": "" },
-    { "wrong": "农电华鑫", "right": "龙电华鑫", "type": "同音", "note": "" },
-    { "wrong": "龙店华鑫", "right": "龙电华鑫", "type": "同音", "note": "" },
-    { "wrong": "龙电华新", "right": "龙电华鑫", "type": "同音", "note": "" },
-    { "wrong": "石正球", "right": "时震球", "type": "同音", "note": "集团能源板块财务总监" },
-    { "wrong": "石总", "right": "时总", "type": "同音", "note": "时震球" },
-    { "wrong": "周希总", "right": "周曦", "type": "同音", "note": "龙电华鑫 CFO" },
-    { "wrong": "周鑫总", "right": "周曦", "type": "同音", "note": "" },
-    { "wrong": "周世总", "right": "周曦", "type": "同音", "note": "" },
-    { "wrong": "周志总", "right": "周曦", "type": "同音", "note": "" },
-    { "wrong": "周金总", "right": "周曦", "type": "同音", "note": "" },
-    { "wrong": "关总", "right": "冠然总", "type": "同音", "note": "杰思集团董事长王冠然" },
-    { "wrong": "郭兰总", "right": "冠然总", "type": "同音", "note": "" },
-    { "wrong": "郭然总", "right": "冠然总", "type": "同音", "note": "" },
-    { "wrong": "霍然总", "right": "冠然总", "type": "同音", "note": "" },
-    { "wrong": "关然总", "right": "冠然总", "type": "同音", "note": "" },
-    { "wrong": "常伟", "right": "常洪磊", "type": "语音截断", "note": "龙电华鑫 IT 经理" },
-    { "wrong": "常务磊", "right": "常洪磊", "type": "同音", "note": "" },
-    { "wrong": "长风里", "right": "常洪磊", "type": "同音", "note": "" },
-    { "wrong": "长鹿", "right": "常洪磊", "type": "同音", "note": "" },
-    { "wrong": "常总", "right": "常洪磊", "type": "代称", "note": "" },
-    { "wrong": "张丽", "right": "张玉", "type": "同音", "note": "" },
-    { "wrong": "张律师", "right": "张玉", "type": "同音", "note": "" },
-    { "wrong": "张玉浩", "right": "张玉", "type": "语音截断", "note": "" },
-    { "wrong": "珍珍", "right": "田珍珍", "type": "姓氏遗漏", "note": "龙电华鑫财务" },
-    { "wrong": "真真", "right": "田珍珍", "type": "同音", "note": "" },
-    { "wrong": "小娜", "right": "亢小娜", "type": "姓氏遗漏", "note": "龙电华鑫销售后勤" },
-    { "wrong": "高博士", "right": "高毓霖", "type": "代称", "note": "深圳龙电华鑫总经理" },
-    { "wrong": "桂平", "right": "黄贵平", "type": "姓氏遗漏", "note": "华鑫科技销售财务" },
-    { "wrong": "文志华", "right": "文治华", "type": "同音", "note": "" },
-    { "wrong": "徐欢", "right": "于欢", "type": "同音", "note": "" },
-    { "wrong": "余欢", "right": "于欢", "type": "同音", "note": "" },
-    { "wrong": "雨花", "right": "于欢", "type": "同音", "note": "" },
-    { "wrong": "吴玉新", "right": "武玉鑫", "type": "同音", "note": "" },
-    { "wrong": "德芙", "right": "德福科技", "type": "同音", "note": "竞争对手" },
-    { "wrong": "嘉联", "right": "嘉元科技", "type": "同音", "note": "竞争对手广东嘉元" },
-    { "wrong": "废铂", "right": "废箔", "type": "同音", "note": "铜箔行业术语，bó≠bó 但含义不同" },
-    { "wrong": "熔铜", "right": "溶铜", "type": "同音", "note": "铜箔生产工序，溶解≠熔化" },
-    { "wrong": "日志日报表", "right": "资金日报表", "type": "同音", "note": "" },
-    { "wrong": "日志间报表", "right": "资金日报表", "type": "同音", "note": "" }
-  ],
-  "suspicious": [
-    { "pattern": "华星(?!科技)", "guess": "华鑫" },
-    { "pattern": "DDB", "guess": "DBM (DCS+BI+MES)" }
-  ]
+  "AEC": {
+    "correct": "用友 NC",
+    "kind": "system",
+    "source": "杰思集团名称校对参考表"
+  },
+  "APC": {
+    "correct": "ABC",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "CNAS認證": {
+    "correct": "CNAS认证",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "DDB": {
+    "correct": "DBM系统",
+    "kind": "system",
+    "source": "杰思集团名称校对参考表"
+  },
+  "FCCI": {
+    "correct": "FCCL",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "FCLL": {
+    "correct": "FCCL",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "FCP": {
+    "correct": "FPC",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "SKI": {
+    "correct": "SK Inc.",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "SK株式会社": {
+    "correct": "SK Inc.",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "丁恺": {
+    "correct": "丁凯",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "专精特薪": {
+    "correct": "专精特新",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "东赢": {
+    "correct": "东营",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "严同宇": {
+    "correct": "严统羽",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "严宏宇": {
+    "correct": "严统羽",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "严通宇": {
+    "correct": "严统羽",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "乐岭股份": {
+    "correct": "跃岭股份",
+    "kind": "company",
+    "source": "杰思集团名称校对参考表"
+  },
+  "亢小娜": {
+    "correct": "亢晓娜",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "任局": {
+    "correct": "刘润局",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "余欢": {
+    "correct": "于欢",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "农电华鑫": {
+    "correct": "龙电华鑫",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "农行国际": {
+    "correct": "农银国际",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "农银证劵": {
+    "correct": "农银国际",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "凌宝": {
+    "correct": "灵宝",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "凌宝黄金": {
+    "correct": "灵宝黄金",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "刘云局": {
+    "correct": "刘润局",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "刘任局": {
+    "correct": "刘润局",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "北不湾黄金": {
+    "correct": "北部湾黄金",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "北部弯黄金": {
+    "correct": "北部湾黄金",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "华心铜箔": {
+    "correct": "华鑫铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "华新科技": {
+    "correct": "华鑫科技",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "华新铜箔": {
+    "correct": "华鑫铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "华星科技": {
+    "correct": "华鑫科技",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "华欣铜箔": {
+    "correct": "华鑫铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "南寧": {
+    "correct": "南宁",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "台洲": {
+    "correct": "台州",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "吉尔吉斯坦": {
+    "correct": "吉尔吉斯斯坦",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "吴卫林": {
+    "correct": "吴以林",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "吴玉鑫": {
+    "correct": "武玉鑫",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "吴雨欣": {
+    "correct": "武玉鑫",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "周广林": {
+    "correct": "周广岭",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "复合流体": {
+    "correct": "复合集流体",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "宏宇电子": {
+    "correct": "鸿宇电子",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "小严": {
+    "correct": "严统羽",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "小巨仁": {
+    "correct": "小巨人企业",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "岳岭": {
+    "correct": "跃岭",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "岳岭股份": {
+    "correct": "跃岭股份",
+    "kind": "company",
+    "source": "杰思集团名称校对参考表"
+  },
+  "废铂": {
+    "correct": "废箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "徐晨": {
+    "correct": "徐尘",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "徐辰": {
+    "correct": "徐尘",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "德芙": {
+    "correct": "德福科技",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "换液": {
+    "correct": "于欢",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "文心": {
+    "correct": "武玉鑫",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "曾泽清": {
+    "correct": "曾泽鑫",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "未来资本": {
+    "correct": "未来资产",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "末来资产": {
+    "correct": "未来资产",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "杰思伟叶": {
+    "correct": "杰思伟业",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "杰思伟夜": {
+    "correct": "杰思伟业",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "杰斯国际贸易": {
+    "correct": "杰思国际贸易",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "林宝": {
+    "correct": "灵宝",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "林宝黄金": {
+    "correct": "灵宝黄金",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "武雨欣": {
+    "correct": "武玉鑫",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "每华能源": {
+    "correct": "美华能源",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "洪宇电子": {
+    "correct": "鸿宇电子",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "熔铜": {
+    "correct": "溶铜",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "玉芳": {
+    "correct": "童月芳",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "王院长": {
+    "correct": "王胜先",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "电解铜薄": {
+    "correct": "电解铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "红宇电子": {
+    "correct": "鸿宇电子",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "美化能源": {
+    "correct": "美华能源",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "范威": {
+    "correct": "泛微",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "范威 OA": {
+    "correct": "泛微 OA",
+    "kind": "system",
+    "source": "杰思集团名称校对参考表"
+  },
+  "贾川": {
+    "correct": "贾存盛",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "贾春生": {
+    "correct": "贾存盛",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "贾春胜": {
+    "correct": "贾存盛",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "越岭": {
+    "correct": "跃岭",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "越岭股份": {
+    "correct": "跃岭股份",
+    "kind": "company",
+    "source": "杰思集团名称校对参考表"
+  },
+  "越方": {
+    "correct": "童月芳",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "返威": {
+    "correct": "泛微",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "返威 OA": {
+    "correct": "泛微 OA",
+    "kind": "system",
+    "source": "杰思集团名称校对参考表"
+  },
+  "金为民": {
+    "correct": "金为珉",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "金伟敏": {
+    "correct": "金为珉",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "铜泊": {
+    "correct": "铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "铜薄": {
+    "correct": "铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "锂电铜薄": {
+    "correct": "锂电铜箔",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "长虹类": {
+    "correct": "常洪磊",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "长虹类产品": {
+    "correct": "常洪磊",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "闫宏宇": {
+    "correct": "严统羽",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "零宝黄金": {
+    "correct": "灵宝黄金",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "零金牌": {
+    "correct": "灵金牌国标金锭",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "饭微": {
+    "correct": "泛微",
+    "kind": "person",
+    "source": "杰思集团名称校对参考表"
+  },
+  "饭微 OA": {
+    "correct": "泛微 OA",
+    "kind": "system",
+    "source": "杰思集团名称校对参考表"
+  },
+  "龙店华鑫": {
+    "correct": "龙电华鑫",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "龙殿电气": {
+    "correct": "龙电电气",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "龙电华新": {
+    "correct": "龙电华鑫",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  },
+  "龙电电器": {
+    "correct": "龙电电气",
+    "kind": "term",
+    "source": "杰思集团名称校对参考表"
+  }
 }
