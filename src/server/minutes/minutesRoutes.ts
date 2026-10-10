@@ -1,12 +1,18 @@
 import { Router } from "express";
 import type { DiscussionRepository } from "../discussions/repository";
+import type { LocalSettingsStore } from "../settings/localSettings";
 import { MinutesEngine } from "./engine";
+import { polishAllUtterances } from "./polish";
 import type { MeetingScene } from "./types";
 import { MEETING_SCENES } from "./types";
 
 const SCENE_VALUES = new Set<MeetingScene>(MEETING_SCENES.map((s) => s.value));
 
-export function createMinutesRouter(deps: { repository: DiscussionRepository; configDir: string }): Router {
+export function createMinutesRouter(deps: {
+  repository: DiscussionRepository;
+  configDir: string;
+  settingsStore?: LocalSettingsStore;
+}): Router {
   const router = Router();
   const engine = new MinutesEngine({ configDir: deps.configDir });
 
@@ -16,7 +22,7 @@ export function createMinutesRouter(deps: { repository: DiscussionRepository; co
   });
 
   // 预览：返回校验报告 + 待办 + 校对报告 + 两份 MD 全文
-  router.get("/:id/preview", (req, res) => {
+  router.get("/:id/preview", async (req, res) => {
     const discussion = deps.repository.getDiscussion(req.params.id);
     if (!discussion) {
       res.status(404).json({ error: "discussion not found" });
@@ -24,9 +30,21 @@ export function createMinutesRouter(deps: { repository: DiscussionRepository; co
     }
     const scene = parseScene(req.query.scene);
     const topicOverride = typeof req.query.topic === "string" ? req.query.topic : undefined;
-    const result = engine.generate(discussion, scene, topicOverride);
+    const wantPolish = req.query.polish === "true";
+
+    // 可选 LLM 润色
+    let discussionToUse = discussion;
+    if (wantPolish && deps.settingsStore) {
+      const settings = deps.settingsStore.load();
+      const finalUtterances = discussion.utterances.filter((u) => u.isFinal);
+      const polished = await polishAllUtterances(finalUtterances, settings);
+      discussionToUse = { ...discussion, utterances: polished };
+    }
+
+    const result = engine.generate(discussionToUse, scene, topicOverride);
     res.json({
       scene,
+      polished: wantPolish,
       checklist: result.checklist,
       todos: result.todos,
       proofread: result.proofread,
@@ -38,13 +56,21 @@ export function createMinutesRouter(deps: { repository: DiscussionRepository; co
   });
 
   // 下载交付件
-  router.get("/:id/deliverable.md", (req, res) => {
+  router.get("/:id/deliverable.md", async (req, res) => {
     const discussion = deps.repository.getDiscussion(req.params.id);
     if (!discussion) {
       res.status(404).json({ error: "discussion not found" });
       return;
     }
-    const result = engine.generate(discussion, parseScene(req.query.scene), typeof req.query.topic === "string" ? req.query.topic : undefined);
+    const wantPolish = req.query.polish === "true";
+    let discussionToUse = discussion;
+    if (wantPolish && deps.settingsStore) {
+      const settings = deps.settingsStore.load();
+      const finalUtterances = discussion.utterances.filter((u) => u.isFinal);
+      const polished = await polishAllUtterances(finalUtterances, settings);
+      discussionToUse = { ...discussion, utterances: polished };
+    }
+    const result = engine.generate(discussionToUse, parseScene(req.query.scene), typeof req.query.topic === "string" ? req.query.topic : undefined);
     res
       .status(200)
       .type("text/markdown; charset=utf-8")
