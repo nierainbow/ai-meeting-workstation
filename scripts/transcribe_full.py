@@ -62,9 +62,9 @@ def start_qwen_server(port: int) -> subprocess.Popen:
     model_dir = "/Applications/Type4Me.app/Contents/Resources/Models/Qwen3-ASR"
     hotwords = os.path.join(os.path.dirname(__file__), "..", "config", "hotwords", "jiesi.txt")
 
+    # 注意：不传 --hotwords-file，这个版本的 Qwen3-ASR server 在静音/短段时
+    # 会把整个热词列表当成输出"念"出来（实测 bug）。热词交给后续 proofread 词表处理。
     cmd = [server_bin, "--model-path", model_dir, "--port", str(port)]
-    if os.path.exists(hotwords):
-        cmd.extend(["--hotwords-file", hotwords])
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # 等待健康
@@ -185,16 +185,36 @@ def main() -> int:
         for seg in segments:
             seg["text"] = seg["text_sensevoice"]
 
-    # Step 4: 输出
-    print("[4/4] 写出结果...", flush=True)
+    # Step 4: 后处理过滤 Qwen3-ASR 幻觉段
+    # 问题：Qwen3-ASR 在静音/短段会"幻觉"出大量专有名词列表
+    # 判断：一段文本里包含 >15 个大写缩写/长专有名词 → 回退到 SenseVoice
+    import re
+    def is_hallucinated(text: str) -> bool:
+        # 数大写缩写词（ABC, DBM, CATL 这种）
+        acronyms = len(re.findall(r'[A-Z]{2,}', text))
+        # 数长专有名词（>6 字的中文词）
+        long_words = len(re.findall(r'[\u4e00-\u9fff]{6,}', text))
+        return acronyms > 15 or long_words > 10
+
+    filtered_count = 0
     out_segments = []
     for seg in segments:
+        final_text = seg["text"]
+        if is_hallucinated(final_text):
+            # 回退到 SenseVoice 结果
+            final_text = seg["text_sensevoice"]
+            filtered_count += 1
         out_segments.append({
             "start": seg["start"],
             "end": seg["end"],
             "speaker": seg["speaker"],
-            "text": seg["text"],
+            "text": final_text,
         })
+    if filtered_count:
+        print(f"  过滤了 {filtered_count} 段 Qwen3-ASR 幻觉", flush=True)
+
+    # Step 5: 写出
+    print("[4/4] 写出结果...", flush=True)
 
     transcript = "\n".join(s["text"] for s in out_segments)
     (out_dir / "transcript.txt").write_text(transcript, encoding="utf-8")
