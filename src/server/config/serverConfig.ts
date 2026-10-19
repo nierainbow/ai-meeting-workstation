@@ -36,6 +36,12 @@ export type ServerConfig = {
     hotwordsFile?: string;
     fileTimeoutMs: number;
   };
+  modelCache: {
+    /** ModelScope 缓存根目录，下载的模型放这里。 */
+    dir: string;
+    /** 单个文件下载超时（毫秒）。 */
+    fileTimeoutMs: number;
+  };
 };
 
 export function resolveFunasrRuntime(
@@ -106,8 +112,33 @@ export function loadServerConfig(
       port: readType4mePort(env.TYPE4ME_ASR_PORT ?? "8791"),
       hotwordsFile: env.TYPE4ME_ASR_HOTWORDS_FILE?.trim() || defaultType4meHotwordsFile(platform),
       fileTimeoutMs: readPositiveNumber(env.TYPE4ME_FILE_TIMEOUT_MS ?? "1800000", "TYPE4ME_FILE_TIMEOUT_MS")
+    },
+    modelCache: {
+      dir: resolveModelCacheDir(env, cwd, funasrRuntime.asrHome, resolve(env.APP_DATA_DIR ?? ".local-data")),
+      fileTimeoutMs: readPositiveNumber(
+        env.MODEL_DOWNLOAD_FILE_TIMEOUT_MS ?? "1800000",
+        "MODEL_DOWNLOAD_FILE_TIMEOUT_MS"
+      )
     }
   };
+}
+
+/**
+ * 模型缓存落点：显式 MODELSCOPE_CACHE 优先；否则沿用 asrHome 下已有的缓存
+ * （开发机与既有安装不动）；全新安装落到 APP_DATA_DIR 下——打包后的 .app 里
+ * Resources 目录是只读的，模型必须写进用户数据目录才下载得动。
+ */
+export function resolveModelCacheDir(
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+  asrHome: string,
+  dataDir: string
+): string {
+  const explicit = env.MODELSCOPE_CACHE?.trim();
+  if (explicit) return resolve(cwd, explicit);
+  const legacy = join(asrHome, ".modelscope_cache");
+  if (existsSync(legacy)) return legacy;
+  return join(dataDir, ".modelscope_cache");
 }
 
 // Type4Me 的 qwen3-asr-server 由 Type4Me 启动时会带上这个热词文件；工作台自己的实例默认复用同一份。

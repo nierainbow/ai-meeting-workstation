@@ -20,6 +20,10 @@ import { createDiscussionRouter } from "./discussions/routes";
 import { DiscussionRepository } from "./discussions/repository";
 import { MemoryStore } from "./memory/memoryStore";
 import { LocalSettingsStore } from "./settings/localSettings";
+import { ModelDownloader, MODEL_TIER_LABELS, MODEL_TIER_SUMMARIES, TIER_ASSETS, detectMissingAssets, isAssetInstalled } from "./models/modelDownloader";
+import { ModelOnboardingStore, needsModelOnboarding } from "./models/onboarding";
+import { createModelsRouter } from "./models/routes";
+import type { ModelTierId } from "../shared/types";
 import { ensureStoragePaths } from "./storage/paths";
 import { EventHub } from "./ws/eventHub";
 
@@ -37,6 +41,7 @@ const funasrFileTranscriber = new FunasrFileTranscriber(
   {
     pythonPath: config.funasrPythonPath,
     asrHome: config.funasrAsrHome,
+    modelCacheDir: config.modelCache.dir,
     timeoutMs: config.funasrFileTimeoutMs,
     device: config.funasrDevice,
     hotwordFile: config.funasrHotwordFile
@@ -76,6 +81,7 @@ const demoFunasrFileTranscriber = new FunasrFileTranscriber(
   {
     pythonPath: config.funasrPythonPath,
     asrHome: config.funasrAsrHome,
+    modelCacheDir: config.modelCache.dir,
     timeoutMs: config.funasrFileTimeoutMs,
     device: config.funasrDevice,
     hotwordFile: config.funasrHotwordFile
@@ -127,6 +133,12 @@ const demoWorkspace = new DemoWorkspace({
   fallbackAudioPath: resolve("assets/demo/chengyuan-tech-fallback-open-kokoro.wav")
 });
 
+const modelDownloader = new ModelDownloader({
+  cacheDir: config.modelCache.dir,
+  fileTimeoutMs: config.modelCache.fileTimeoutMs
+});
+const modelOnboarding = new ModelOnboardingStore(storagePaths.dataDir);
+
 const app = express();
 const server = createServer(app);
 eventHub.attach(server);
@@ -155,7 +167,24 @@ app.get("/api/config", (_request, response) => {
     defaultMode: config.defaultMode,
     asrConfigured: volcengineAsr.checkCredentials().ok,
     codexProvider: config.codexProvider,
-    settings: settingsStore.publicSettings()
+    settings: settingsStore.publicSettings(),
+    // 首启模型向导：缺少本地模型且没跳过时才需要展示，见 ModelSetupStatusDto.needsSetup。
+    models: {
+      ...modelDownloader.status(),
+      cacheDir: config.modelCache.dir,
+      missingAssets: detectMissingAssets(config.modelCache.dir),
+      needsSetup: needsModelOnboarding({
+        missingAssets: detectMissingAssets(config.modelCache.dir),
+        state: modelOnboarding.read()
+      }),
+      tiers: (Object.keys(TIER_ASSETS) as ModelTierId[]).map((tier) => ({
+        tier,
+        label: MODEL_TIER_LABELS[tier],
+        summary: MODEL_TIER_SUMMARIES[tier],
+        assets: TIER_ASSETS[tier],
+        installed: TIER_ASSETS[tier].every((key) => isAssetInstalled(config.modelCache.dir, key))
+      }))
+    }
   });
 });
 
@@ -236,6 +265,11 @@ app.use(
     eventHub,
     storagePaths
   })
+);
+
+app.use(
+  "/api/models",
+  createModelsRouter({ downloader: modelDownloader, cacheDir: config.modelCache.dir, onboarding: modelOnboarding })
 );
 
 // 桌面壳（Tauri）与打包发布都靠这一层把 dist/client 交给同源的 8787 端口；

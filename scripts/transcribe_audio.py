@@ -38,6 +38,15 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_ASR_HOME),
         help="Directory containing .venv and .modelscope_cache. Defaults to the current directory.",
     )
+    parser.add_argument(
+        "--model-cache",
+        default=None,
+        help=(
+            "ModelScope cache root holding the iic/ model folders. Defaults to "
+            "<asr-home>/.modelscope_cache; the desktop model wizard downloads into "
+            "APP_DATA_DIR, where this must be passed explicitly."
+        ),
+    )
     parser.add_argument("--ncpu", type=int, default=4, help="CPU workers for FunASR.")
     parser.add_argument(
         "--device",
@@ -68,8 +77,10 @@ def require_path(path: Path, label: str) -> None:
         raise SystemExit(f"Missing {label}: {path}")
 
 
-def resolve_model_path(asr_home: Path, folder: str) -> Path:
-    cache_root = asr_home / ".modelscope_cache"
+def resolve_model_path(asr_home: Path, folder: str, model_cache: str | None = None) -> Path:
+    # 显式 --model-cache 优先：桌面壳把模型下载到 APP_DATA_DIR（Resources 只读），
+    # 与 --asr-home 不再是同一个目录。
+    cache_root = Path(model_cache) if model_cache else asr_home / ".modelscope_cache"
     candidates = [
         cache_root / "models" / "iic" / folder,
         cache_root / "iic" / folder,
@@ -116,8 +127,17 @@ def resolve_device(requested: str) -> str:
     return "cpu"
 
 
-def load_model(asr_home: Path, ncpu: int, speaker_diarization: bool, device: str):
-    model_paths = {key: resolve_model_path(asr_home, folder) for key, folder in MODEL_DIRS.items()}
+def load_model(
+    asr_home: Path,
+    ncpu: int,
+    speaker_diarization: bool,
+    device: str,
+    model_cache: str | None = None,
+):
+    model_paths = {
+        key: resolve_model_path(asr_home, folder, model_cache)
+        for key, folder in MODEL_DIRS.items()
+    }
     required_keys = ["asr", "vad", "punc", "timestamp"]
     if speaker_diarization:
         required_keys.append("speaker")
@@ -125,7 +145,8 @@ def load_model(asr_home: Path, ncpu: int, speaker_diarization: bool, device: str
         path = model_paths[key]
         require_path(path, f"{key} model")
 
-    os.environ["MODELSCOPE_CACHE"] = str(asr_home / ".modelscope_cache")
+    cache_root = Path(model_cache) if model_cache else asr_home / ".modelscope_cache"
+    os.environ["MODELSCOPE_CACHE"] = str(cache_root)
     os.environ["HF_HOME"] = str(asr_home / ".hf_cache")
 
     from funasr import AutoModel
@@ -283,11 +304,15 @@ def main() -> int:
 
     require_path(source, "input file")
     require_path(asr_home / ".venv", "ASR virtual environment")
-    require_path(asr_home / ".modelscope_cache", "ModelScope cache")
+    # 模型缓存可能来自 --model-cache（桌面壳下载到 APP_DATA_DIR），
+    # 也可能仍在 asr_home 下；两边都不存在才报缺模型。
+    cache_root = Path(args.model_cache) if args.model_cache else asr_home / ".modelscope_cache"
+    if not cache_root.exists():
+        require_path(asr_home / ".modelscope_cache", "ModelScope cache")
 
     hotword_text = read_hotwords(args.hotwords, args.hotword_file)
     device = resolve_device(args.device)
-    model = load_model(asr_home, args.ncpu, args.speaker_diarization, device)
+    model = load_model(asr_home, args.ncpu, args.speaker_diarization, device, args.model_cache)
     with tempfile.TemporaryDirectory(prefix="meeting-notes-asr-") as tmp:
         wav_path = Path(tmp) / "input-16k-mono.wav"
         convert_to_wav(source, wav_path)

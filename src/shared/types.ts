@@ -7,6 +7,68 @@ export type AiTurnStatus = "pending" | "streaming" | "completed" | "truncated" |
 export type AiTurnType = "summary" | "challenge" | "risk" | "next_step";
 export type AiFeedbackRating = "useful" | "bad";
 
+/** 首启模型下载档位：仅云端 / 本地转写 / 全离线。 */
+export type ModelTierId = "cloud" | "local-transcribe" | "offline";
+
+/** 单个本地模型的下载/安装状态。 */
+export type ModelAssetStatus = "missing" | "downloading" | "installed" | "failed";
+
+export type ModelAssetDto = {
+  /** 稳定标识，前端透传给后端做跳过/取消。 */
+  key: string;
+  label: string;
+  /** ModelScope 模型 id（iic/...）。 */
+  modelId: string;
+  /** 该档位是否必需。非必需模型（如 Cam++ 说话人）缺失不阻断主流程。 */
+  required: boolean;
+  /** 已下载字节数。 */
+  downloadedBytes: number;
+  /** 预估总字节数；未开始下载时为 0。 */
+  totalBytes: number;
+  status: ModelAssetStatus;
+  error?: string;
+};
+
+/** 下载任务整体状态，供进度条渲染。 */
+export type ModelDownloadStatusDto = {
+  tier: ModelTierId;
+  running: boolean;
+  /** 0-1；未知时为 0。 */
+  progress: number;
+  currentLabel?: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  assets: ModelAssetDto[];
+  error?: string;
+  /** 断点续传生效说明：命中的是本地已有分片还是全新开始。 */
+  resumed: boolean;
+};
+
+/** 向导里的档位卡片：选哪个档位、要下多少东西、现在装没装。 */
+export type ModelTierOptionDto = {
+  tier: ModelTierId;
+  label: string;
+  summary: string;
+  /** 该档位需要的模型 key；cloud 为空数组。 */
+  assets: string[];
+  /** 该档位所需模型是否已全部就位。 */
+  installed: boolean;
+};
+
+/**
+ * GET /api/models 的返回体：下载进度 + 首启向导调度状态。
+ * needsSetup 为 true 时前端应展示首启向导（用户明确跳过后不再出现）。
+ */
+export type ModelSetupStatusDto = ModelDownloadStatusDto & {
+  /** 模型缓存目录，界面上提示模型存哪儿用。 */
+  cacheDir: string;
+  tiers: ModelTierOptionDto[];
+  needsSetup: boolean;
+  /** 尚未安装的模型 key 清单。 */
+  missingAssets: string[];
+};
+
+
 export type ParticipantDto = {
   id: string;
   discussionId: string;

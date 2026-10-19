@@ -15,6 +15,11 @@ type FunasrFileTranscriberConfig = {
   pythonPath?: string;
   scriptPath?: string;
   asrHome?: string;
+  /**
+   * 模型缓存根目录。桌面壳的模型下载向导把模型写到 APP_DATA_DIR 下（打包后的
+   * Resources 只读），与 asrHome 不是同一个目录，因此必须显式传给 Python 脚本。
+   */
+  modelCacheDir?: string;
   timeoutMs?: number;
   device?: "auto" | "cpu" | "mps";
   hotwordFile?: string;
@@ -31,6 +36,7 @@ export class FunasrFileTranscriber {
   private readonly pythonPath: string;
   private readonly scriptPath: string;
   private readonly asrHome: string;
+  private readonly modelCacheDir?: string;
   private readonly timeoutMs: number;
   private readonly device: "auto" | "cpu" | "mps";
   private readonly hotwordFile?: string;
@@ -50,6 +56,7 @@ export class FunasrFileTranscriber {
       (process.env.FUNASR_TRANSCRIBE_SCRIPT?.trim() ||
         fileURLToPath(new URL("../../../scripts/transcribe_audio.py", import.meta.url)));
     this.asrHome = config.asrHome ?? process.cwd();
+    this.modelCacheDir = config.modelCacheDir?.trim() || process.env.MODELSCOPE_CACHE?.trim() || undefined;
     // Keep the standalone fallback aligned with the production default. A
     // multi-hour recording can legitimately need tens of minutes on CPU.
     this.timeoutMs = config.timeoutMs ?? 21_600_000;
@@ -147,6 +154,9 @@ export class FunasrFileTranscriber {
         this.device,
         "--speaker-diarization"
       ];
+      if (this.modelCacheDir) {
+        args.push("--model-cache", this.modelCacheDir);
+      }
       if (this.hotwordFile) {
         args.push("--hotword-file", this.hotwordFile);
       }
