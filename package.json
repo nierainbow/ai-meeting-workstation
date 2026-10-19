@@ -1,6 +1,6 @@
 {
   "name": "ai-meeting-workstation",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "Local-first AI meeting transcription and collaboration workstation",
   "private": true,
   "license": "MIT",
@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "changelog": "node scripts/generate-changelog.mjs",
     "tauri": "tauri",
     "build:sidecar": "node scripts/build-sidecar.mjs --with-node",
     "build:desktop": "npm run build:sidecar && npm run build && npm run tauri -- build"
