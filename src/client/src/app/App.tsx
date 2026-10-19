@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { isUsableAiTurn, isUsableAiTurnStatus } from "../../../shared/aiTurns";
+import { isUsableAiTurn } from "../../../shared/aiTurns";
 import type { AsrStatus, ProductEvent } from "../../../shared/events";
 import type {
-  AsrProviderType,
-  BrainProviderType,
   CustomerDetailDto,
   CustomerSummaryDto,
   DemoBootstrapDto,
@@ -12,7 +10,6 @@ import type {
   MemoryDraftDto,
   ParticipantDto,
   PublicAppSettingsDto,
-  UtteranceDto,
   WorkspaceDataScope
 } from "../../../shared/types";
 import {
@@ -23,8 +20,6 @@ import {
   deleteDiscussion,
   deleteDiscussionAudio,
   draftMemory,
-  discussionMarkdownExportUrl,
-  discussionPackageExportUrl,
   endDiscussion,
   getAppConfig,
   getCustomer,
@@ -40,61 +35,21 @@ import {
   uploadAudioFile
 } from "./api";
 import { codexResumeCommand } from "./codexCommand";
-import { buildVisibleDiscussionTimeline, mergeAiTurn, mergeUtterance, unboundSpeakerLabels, type TimelineItem } from "./discussionTimeline";
-import { aiTurnDisplayText, aiTurnSystemNotice, mainErrorText } from "./errorPresentation";
+import { buildVisibleDiscussionTimeline, mergeAiTurn, mergeUtterance, unboundSpeakerLabels } from "./discussionTimeline";
 import { SingleFlight } from "./singleFlight";
 import { VoiceInvitationDetector } from "./voiceInvitation";
-import { formatFileSize, isFileAsrProvider, parseKnownSpeakers, taskModeForDiscussion, transcriptionNameFromFile, type TaskMode } from "./taskMode";
-import {
-  addParticipant,
-  createDefaultParticipants,
-  removeParticipant,
-  updateParticipant,
-  type ParticipantFormItem
-} from "./participantForm";
+import { isFileAsrProvider, taskModeForDiscussion, transcriptionNameFromFile, type TaskMode } from "./taskMode";
+import { initialAsrDiagnostics, initialFormState, type AsrDiagnostics, type FormState } from "./appTypes";
+import { countFinalUtterancesSinceLastAiTurn, copyText, float32ToPcm16, sessionPhase } from "./format";
+import { defaultModelForBrain } from "./brainOptions";
+import { defaultCustomerProfile } from "./customerProfile";
+import { HomeView } from "./views/HomeView";
+import { FileTranscribeView } from "./views/FileTranscribeView";
+import { LiveMeetingView } from "./views/LiveMeetingView";
+import { SettingsView } from "./views/SettingsView";
+import { DemoView } from "./views/DemoView";
 
-type FormState = {
-  background: string;
-  customerId: string;
-  customerName: string;
-  customerProfile: string;
-  participants: ParticipantFormItem[];
-  projectPath: string;
-  asrProvider: AsrProviderType;
-  brainProvider: BrainProviderType;
-  brainModel: string;
-};
-
-type AsrDiagnostics = {
-  micAuthorized: boolean;
-  audioSending: boolean;
-  asrConnected: boolean;
-  asrReceiving: boolean;
-  errorMessage?: string;
-  retryable: boolean;
-};
-
-type SessionPhase = "ready" | "listening" | "capturing" | "agent-thinking" | "agent-joined" | "handoff-ready" | "handoff-copied";
-
-const initialFormState: FormState = {
-  background: "",
-  customerId: "",
-  customerName: "",
-  customerProfile: defaultCustomerProfile(""),
-  participants: createDefaultParticipants(),
-  projectPath: ".",
-  asrProvider: "volcengine",
-  brainProvider: "deepseek",
-  brainModel: "deepseek-v4-pro"
-};
-
-const initialAsrDiagnostics: AsrDiagnostics = {
-  micAuthorized: false,
-  audioSending: false,
-  asrConnected: false,
-  asrReceiving: false,
-  retryable: false
-};
+export { speakerLetter } from "./speaker";
 
 export function App() {
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -773,8 +728,8 @@ export function App() {
     void loadRecentDiscussions(workspaceScope);
   }
 
-  async function handleCopyCodexCommand(command: string) {
-    if (await copyText(command)) {
+  async function handleCopyCodexCommand(command: string | null) {
+    if (command && (await copyText(command))) {
       setCopyStatus("已复制");
       setIsCommandExpanded(true);
       return;
@@ -926,437 +881,105 @@ export function App() {
       ) : null}
 
       {taskMode === "home" ? (
-        <section className="task-home" aria-label="选择工作任务">
-          <header className="task-home-intro">
-            <span>AI MEETING WORKSTATION</span>
-            <h1>今天要处理哪一种会议？</h1>
-            <p>已有录音直接转写；正在开会则进入实时助手。两条流程各自保持清晰。</p>
-          </header>
-          <div className="task-entry-grid">
-            <article className="task-entry-card file-primary">
-              <span className="task-index">01 · FILE TRANSCRIPT</span>
-              <h2>上传录音转写</h2>
-              <p>已有 M4A、MP3、WAV 等录音，上传后生成完整逐字稿。</p>
-              <button type="button" disabled={isTaskBusy} onClick={() => handleSelectTask("file")}>选择录音文件</button>
-              <small>默认推荐火山录音文件识别 2.0；也可以选择本地 FunASR。</small>
-            </article>
-            <article className="task-entry-card live-secondary">
-              <span className="task-index">02 · LIVE MEETING</span>
-              <h2>实时会议助手</h2>
-              <p>现场录音、实时转写，并可在讨论中邀请 AI 参与。</p>
-              <button type="button" disabled={isTaskBusy} onClick={() => handleSelectTask("live")}>开始实时会议</button>
-              <small>保留会议背景、参与者、麦克风和 AI 参谋。</small>
-            </article>
-          </div>
-          <RecentTasks items={recentDiscussions} onOpen={handleOpenDiscussion} />
-        </section>
+        <HomeView
+          recentDiscussions={recentDiscussions}
+          onOpenDiscussion={handleOpenDiscussion}
+          isTaskBusy={isTaskBusy}
+          onSelectTask={handleSelectTask}
+        />
       ) : isFileMode ? (
-        <section className="file-workspace" aria-label={isFileResult ? "录音转写结果" : "上传录音转写"}>
-          <header className="file-workspace-header">
-            <div>
-              <button
-                type="button"
-                className="quiet-button"
-                style={{ display: "block", marginBottom: 18, borderColor: "#7785db", color: "#293a92", background: "#f0f3ff", fontWeight: 800 }}
-                disabled={isTaskBusy}
-                onClick={handleReturnHome}
-              >
-                ← 返回首页
-              </button>
-              <span>{isFileResult ? "TRANSCRIPT RESULT" : "FILE TRANSCRIPTION"}</span>
-              <h1>{isFileResult ? "转写结果" : "上传录音转写"}</h1>
-              <p>{isFileResult ? "逐字稿已进入时间线，可校正说话人并导出。" : "先选择文件，再确认转写方式；选择文件不会立即上传。"}</p>
-            </div>
-          </header>
-
-          {!isFileResult ? (
-            <div className="file-preflight-grid">
-              <section className="file-picker-card">
-                <input
-                  ref={primaryFunasrInputRef}
-                  id="file-transcription-input"
-                  type="file"
-                  accept="audio/*,video/*"
-                  hidden
-                  disabled={isAudioFileUploading}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleChooseAudioFile(file);
-                    event.currentTarget.value = "";
-                  }}
-                  onDragEnter={(event) => event.preventDefault()}
-                />
-                {selectedAudioFile ? (
-                  <div className="selected-file-card">
-                    <span className="file-token" aria-hidden="true">AUDIO</span>
-                    <div>
-                      <strong>{selectedAudioFile.name}</strong>
-                      <small>{formatFileSize(selectedAudioFile.size)} · 等待开始</small>
-                    </div>
-                    <button type="button" disabled={isAudioFileUploading} onClick={handleClearAudioFile}>移除</button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="file-drop-target"
-                    disabled={isAudioFileUploading}
-                    onClick={() => primaryFunasrInputRef.current?.click()}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const file = event.dataTransfer.files?.[0];
-                      if (file) handleChooseAudioFile(file);
-                    }}
-                  >
-                    <strong>选择或拖放录音文件</strong>
-                    <span>支持 M4A、MP3、WAV 等常见格式</span>
-                  </button>
-                )}
-                {selectedAudioFile ? (
-                  <button type="button" className="replace-file" disabled={isAudioFileUploading} onClick={() => primaryFunasrInputRef.current?.click()}>重新选择文件</button>
-                ) : null}
-              </section>
-
-              <section className="file-options-card">
-                <fieldset disabled={isAudioFileUploading}>
-                  <legend>选择转写方式</legend>
-                  <label className={form.asrProvider === "volcengine-file" ? "provider-choice selected" : "provider-choice"}>
-                    <input type="radio" name="file-provider" value="volcengine-file" checked={form.asrProvider === "volcengine-file"} onChange={() => setForm((current) => ({ ...current, asrProvider: "volcengine-file" }))} />
-                    <span><strong>火山录音文件识别 2.0 <em>推荐</em></strong><small>录音会上传到火山引擎；本工作台当前限制 200MB。</small></span>
-                  </label>
-                  <label className={form.asrProvider === "funasr" ? "provider-choice selected" : "provider-choice"}>
-                    <input type="radio" name="file-provider" value="funasr" checked={form.asrProvider === "funasr"} onChange={() => setForm((current) => ({ ...current, asrProvider: "funasr" }))} />
-                    <span><strong>本地 FunASR <em>隐私优先</em></strong><small>只在本机处理；准确度可能低于火山。</small></span>
-                  </label>
-                  <label className={form.asrProvider === "type4me" ? "provider-choice selected" : "provider-choice"}>
-                    <input type="radio" name="file-provider" value="type4me" checked={form.asrProvider === "type4me"} onChange={() => setForm((current) => ({ ...current, asrProvider: "type4me" }))} />
-                    <span><strong>Type4Me 本地引擎 <em>Qwen3-ASR</em></strong><small>复用本机 Type4Me 的模型与热词，Apple Silicon 加速，全程离线。</small></span>
-                  </label>
-                </fieldset>
-                <label className="file-meta-field">转写名称（可选）<input value={fileTranscriptionName} placeholder="未填写时使用文件名" disabled={isAudioFileUploading} onChange={(event) => setFileTranscriptionName(event.target.value)} /></label>
-                <label className="file-meta-field">会议说明（可选）<textarea value={form.background} disabled={isAudioFileUploading} placeholder="例如：客户访谈、项目复盘" onChange={(event) => setForm({ ...form, background: event.target.value })} /></label>
-                <label className="file-meta-field">已知说话人姓名（可选）<input value={form.participants.map((item) => item.displayName).join("，")} disabled={isAudioFileUploading} placeholder="用逗号分隔，例如：项目经理，客户经理" onChange={(event) => setForm((current) => ({ ...current, participants: parseKnownSpeakers(event.target.value) }))} /></label>
-              </section>
-            </div>
-          ) : null}
-
-          {discussion ? (
-            <section className="file-result-summary" aria-label="转写摘要">
-              <div><span>文件</span><strong>{selectedAudioFile?.name || discussion.title}</strong></div>
-              <div><span>转写方式</span><strong>{discussion.asrProvider === "volcengine-file" ? "火山录音文件识别 2.0" : discussion.asrProvider === "type4me" ? "Type4Me 本地 Qwen3-ASR" : "本地 FunASR"}</strong></div>
-              <div><span>转写片段</span><strong>{finalUtteranceCount} 条</strong></div>
-            </section>
-          ) : null}
-
-          {isFileResult && discussion ? (
-            <section className="file-result-layout">
-              <section className="conversation-panel file-result-transcript">
-                <header className="panel-heading"><div><span>FULL TRANSCRIPT</span><h2>完整逐字稿</h2></div><div className="transcript-health">已保存到本机</div></header>
-                <div className="conversation-feed file-result-feed">{conversationItems.map((item) => <ConversationEntry discussion={discussion} item={item} key={item.id} />)}</div>
-              </section>
-              <aside className="file-result-actions">
-                <h2>结果操作</h2>
-                <a href={discussionMarkdownExportUrl(discussion.id, workspaceScope)}>导出 Markdown</a>
-                <a href={discussionPackageExportUrl(discussion.id, workspaceScope)}>导出讨论包</a>
-                <button type="button" disabled={isInvitingCodex} onClick={handleInviteCodex}>{isInvitingCodex ? "AI 正在整理" : "让 AI 整理会议纪要"}</button>
-                <button type="button" disabled={isTaskBusy} onClick={() => { setDiscussion(null); setSelectedAudioFile(null); setFileTranscriptionName(""); setErrorMessage(null); setLocalStatus(null); }}>重新上传录音</button>
-              </aside>
-            </section>
-          ) : null}
-
-          {speakerLabels.length > 0 && discussion ? (
-            <section className="voice-binding-strip" aria-label="说话人校正"><strong>说话人校正</strong>{speakerLabels.map((label) => <div className="voice-binding" key={label}><span>{humanSpeakerLabel(label)}</span>{discussion.participants.map((participant) => <button type="button" key={participant.id} onClick={() => handleBindSpeaker(label, participant)}>标为 {participant.displayName}</button>)}</div>)}</section>
-          ) : null}
-
-          {!isFileResult ? (
-            <section className="file-primary-action" aria-live="polite">
-              <button type="button" disabled={!selectedAudioFile || isAudioFileUploading} aria-busy={isAudioFileUploading} onClick={() => void handleStartFileTranscription()}>{isAudioFileUploading ? "正在上传并识别，请勿重复操作" : discussion ? "重试转写" : "开始转写"}</button>
-              <span>{localStatus || (selectedAudioFile ? "等待开始" : "请先选择录音文件")}</span>
-            </section>
-          ) : null}
-          {errorMessage && !isSettingsOpen ? <div className="file-error" role="alert"><strong>转写失败</strong><span>{errorMessage}</span></div> : null}
-        </section>
+        <FileTranscribeView
+          discussion={discussion}
+          isFileResult={isFileResult}
+          isTaskBusy={isTaskBusy}
+          isAudioFileUploading={isAudioFileUploading}
+          isInvitingCodex={isInvitingCodex}
+          isSettingsOpen={isSettingsOpen}
+          form={form}
+          setForm={setForm}
+          selectedAudioFile={selectedAudioFile}
+          setSelectedAudioFile={setSelectedAudioFile}
+          fileTranscriptionName={fileTranscriptionName}
+          setFileTranscriptionName={setFileTranscriptionName}
+          primaryFunasrInputRef={primaryFunasrInputRef}
+          conversationItems={conversationItems}
+          finalUtteranceCount={finalUtteranceCount}
+          speakerLabels={speakerLabels}
+          errorMessage={errorMessage}
+          localStatus={localStatus}
+          workspaceScope={workspaceScope}
+          onReturnHome={handleReturnHome}
+          onChooseAudioFile={handleChooseAudioFile}
+          onClearAudioFile={handleClearAudioFile}
+          onStartFileTranscription={handleStartFileTranscription}
+          onInviteCodex={handleInviteCodex}
+          onBindSpeaker={handleBindSpeaker}
+          onResetFileResult={() => {
+            setDiscussion(null);
+            setSelectedAudioFile(null);
+            setFileTranscriptionName("");
+            setErrorMessage(null);
+            setLocalStatus(null);
+          }}
+        />
       ) : (
-      <section className="workspace-canvas" aria-label="实时会议助手">
-        <div className="topic-stage">
-          <div className="meeting-status">
-            <span className={isRecording ? "status-orb live" : "status-orb"} aria-hidden="true" />
-            <span>{phaseLabel(phase)}</span>
-            {discussion ? <small>{finalUtteranceCount} 条有效片段</small> : null}
-          </div>
-          {!discussion ? (
-            <label className="topic-editor">
-              <span>让每一次会议<br />都成为企业资产</span>
-              <textarea
-                value={form.background}
-                placeholder="写下会议主题、目标和背景。AI 会结合客户档案与历史记忆参与讨论。"
-                onChange={(event) => setForm({ ...form, background: event.target.value })}
-              />
-            </label>
-          ) : (
-            <button type="button" className="topic-node-large" onClick={() => setIsSettingsOpen(true)}>
-              <span>AI 参与企业会议</span>
-              <strong>实时理解讨论，协同判断，沉淀企业知识</strong>
-              <small>从会议实录到行动建议，让每一次沟通都成为下一次决策的上下文。</small>
-            </button>
-          )}
-          <small>{cloudNotice(form.brainProvider, form.asrProvider)}</small>
-        </div>
-
-        <section className="meeting-command-center" aria-label="会议轨迹">
-          <section className="conversation-panel">
-            <header className="panel-heading">
-              <div>
-                <span>Live transcript</span>
-                <h2>会议实录</h2>
-              </div>
-              <div className="transcript-health">
-                <span className={asrStatus === "receiving" || asrStatus === "connected" ? "health-dot online" : "health-dot"} />
-                {isRecording
-                  ? "实时记录中"
-                  : finalUtteranceCount > 0
-                    ? "已保存到本机"
-                    : discussion?.asrProvider === "funasr" || discussion?.asrProvider === "volcengine-file" || discussion?.asrProvider === "type4me"
-                      ? "等待上传录音"
-                      : "等待会议开始"}
-              </div>
-            </header>
-
-            <div className="conversation-feed-shell">
-              <div
-                className="conversation-feed"
-                ref={conversationFeedRef}
-                onScroll={handleConversationScroll}
-                aria-live="polite"
-              >
-                {conversationItems.length > 0 ? (
-                  conversationItems.map((item) => (
-                    <ConversationEntry discussion={discussion} item={item} key={item.id} />
-                  ))
-                ) : (
-                  <div className="conversation-empty">
-                    <span className="empty-wave" aria-hidden="true"><i /><i /><i /><i /></span>
-                    <strong>{discussion ? "会议已经准备好" : "先建立本次会议"}</strong>
-                    <p>
-                      {discussion
-                        ? discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file" || discussion.asrProvider === "type4me"
-                          ? "点击下方“选择录音文件转写”，这里会按顺序呈现识别结果和 AI 的发言。"
-                          : "点击下方“开始实时转写”，这里会按顺序呈现每个人和 AI 的发言。"
-                        : "写下主题后开始会议，实时转写与 AI 建议会出现在这里。"}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {!isFollowingLatest && conversationItems.length > 0 ? (
-                <button type="button" className="conversation-jump-latest" onClick={scrollConversationToLatest}>
-                  回到最新发言 <span aria-hidden="true">↓</span>
-                </button>
-              ) : null}
-            </div>
-          </section>
-
-          <aside className="insight-panel">
-            <header className="insight-heading">
-              <span className="ai-mark" aria-hidden="true">AI</span>
-              <div>
-                <span>Meeting Copilot</span>
-                <h2>AI 会议参谋</h2>
-              </div>
-              <em>{isInvitingCodex ? "分析中" : latestUsableAiTurn ? "已更新" : "待命"}</em>
-            </header>
-
-            <div className={latestUsableAiTurn ? "insight-content has-answer" : "insight-content"}>
-              {isInvitingCodex ? (
-                <>
-                  <strong>正在分析新增讨论</strong>
-                  <p>AI 正在寻找盲点、风险和下一步行动，不会重复发送已经分析过的对话。</p>
-                </>
-              ) : latestUsableAiTurn?.response ? (
-                <>
-                  <strong>本轮建议</strong>
-                  <p>{latestUsableAiTurn.response}</p>
-                  {aiTurnSystemNotice(latestUsableAiTurn.status) ? (
-                    <aside className="ai-response-system-note" role="note">
-                      {aiTurnSystemNotice(latestUsableAiTurn.status)}
-                    </aside>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <strong>让 AI 在关键时刻介入</strong>
-                  <p>{finalUtteranceCountForNextAi > 0 ? `已有 ${finalUtteranceCountForNextAi} 条新片段可分析。` : "会议产生有效对话后，AI 会结合背景和历史记忆给出建议。"}</p>
-                </>
-              )}
-            </div>
-
-            <div className={isGuidanceOpen || aiGuidance.trim() ? "ai-guidance open" : "ai-guidance"}>
-              <button
-                type="button"
-                className="ai-guidance-toggle"
-                aria-expanded={isGuidanceOpen}
-                onClick={() => setIsGuidanceOpen((current) => !current)}
-              >
-                <span aria-hidden="true">{aiGuidance.trim() ? "✓" : "+"}</span>
-                {aiGuidance.trim() ? "已添加本轮引导" : "添加本轮引导（可选）"}
-              </button>
-              {isGuidanceOpen ? (
-                <label className="ai-guidance-editor">
-                  <span>希望 AI 这一次重点回答什么？</span>
-                  <textarea
-                    value={aiGuidance}
-                    maxLength={300}
-                    rows={3}
-                    placeholder="例如：只分析合同风险；判断客户真实意图；不要总结，只给下一步。"
-                    onChange={(event) => setAiGuidance(event.target.value)}
-                  />
-                  <small>
-                    <span>仅影响下一次发言，成功后自动清空</span>
-                    <span>{aiGuidance.length}/300</span>
-                  </small>
-                </label>
-              ) : null}
-            </div>
-
-            <button type="button" className="insight-action" disabled={!discussion || isInvitingCodex || isFallbackLoading} onClick={handleInviteCodex}>
-              {isInvitingCodex ? "AI 正在思考…" : "让 AI 分析最新讨论"}
-            </button>
-            {discussion?.asrProvider === "volcengine" || discussion?.asrProvider === "type4me-live" ? (
-              <p className="voice-invitation-hint">实时转写时也可以说：“AI，你怎么看这个方案？”</p>
-            ) : null}
-
-            <section className="knowledge-preview">
-              <div>
-                <span>Knowledge loop</span>
-                <strong>会议结束后自动沉淀</strong>
-              </div>
-              <p>关键决策、战略方向、客户信号和行动项，将成为企业下一次决策的背景。</p>
-              <div className="knowledge-tags">
-                <span>战略部署</span>
-                <span>关键决策</span>
-                <span>客户洞察</span>
-                <span>行动项</span>
-              </div>
-              <button type="button" onClick={() => setIsKnowledgeOpen(true)}>
-                查看企业知识库 Demo <span aria-hidden="true">↗</span>
-              </button>
-            </section>
-          </aside>
-        </section>
-
-        {speakerLabels.length > 0 && discussion ? (
-          <section className="voice-binding-strip" aria-label="识别到新说话人">
-            <strong>识别到新说话人</strong>
-            {speakerLabels.map((label) => (
-              <div className="voice-binding" key={label}>
-                <span>{humanSpeakerLabel(label)}</span>
-                {discussion.participants.map((participant) => (
-                  <button type="button" key={participant.id} onClick={() => handleBindSpeaker(label, participant)}>
-                    标为 {participant.displayName}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </section>
-        ) : null}
-
-        {isEnded && resumeCommand && isCommandExpanded ? (
-          <section className="handoff-command" aria-label="Codex 续接命令">
-            <code>{resumeCommand}</code>
-            <p>{copyStatus === "已复制" ? "已复制，回到 Codex 后粘贴即可继续。" : "这条命令会把刚才的讨论上下文交回 Codex。"}</p>
-          </section>
-        ) : null}
-
-        <section className="primary-action-cluster" aria-label="当前主动作">
-          {!discussion ? (
-            <button type="button" className="listen-button" onClick={handleStart} disabled={isStarting}>
-              <span className="mic-glyph" aria-hidden="true" />
-              {isStarting ? "准备中" : "开始实时会议"}
-            </button>
-          ) : isEnded ? (
-            <>
-              <button type="button" className="listen-button handoff" onClick={() => void handleCopyCodexCommand(resumeCommand)} disabled={!resumeCommand}>
-                <span className="handoff-glyph" aria-hidden="true" />
-                {copyStatus === "已复制" ? "已复制" : "复制会议上下文"}
-              </button>
-              <button type="button" className="ghost-action" onClick={handleNewDiscussion}>
-                新会议
-              </button>
-            </>
-          ) : (
-            <>
-              {discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file" || discussion.asrProvider === "type4me" ? (
-                <>
-                  <input
-                    ref={primaryFunasrInputRef}
-                    type="file"
-                    accept="audio/*,video/*"
-                    hidden
-                    disabled={isFallbackLoading || isAudioFileUploading}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void handleUploadAudio(file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="listen-button"
-                    onClick={() => primaryFunasrInputRef.current?.click()}
-                    disabled={isFallbackLoading || isAudioFileUploading}
-                    aria-busy={isAudioFileUploading}
-                  >
-                    {isAudioFileUploading ? "正在上传并识别，请勿重复操作" : "选择录音文件转写"}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className={isRecording || isAudioStarting ? "listen-button live" : "listen-button"}
-                  onClick={toggleAudioCapture}
-                  disabled={isAudioStarting || isFallbackLoading}
-                  aria-busy={isAudioStarting}
-                  aria-pressed={isRecording}
-                >
-                  <span className="mic-glyph" aria-hidden="true" />
-                  {isAudioStarting ? "正在请求麦克风…" : isRecording ? "停止实时转写" : "开始实时转写"}
-                </button>
-              )}
-              {isDemoMode ? (
-                <button
-                  type="button"
-                  className="fallback-action"
-                  disabled={isFallbackLoading || fallbackLoaded || !demoBootstrap?.fallbackAudio.available}
-                  onClick={() => void handleLoadFallbackAudio()}
-                >
-                  {isFallbackLoading ? "正在处理兜底录音" : fallbackLoaded ? "兜底录音已载入" : "使用兜底录音"}
-                </button>
-              ) : null}
-              <button type="button" className="agent-action" disabled={isInvitingCodex || isFallbackLoading} onClick={handleInviteCodex}>
-                {isInvitingCodex ? "AI 正在思考" : "由 AI 发言"}
-              </button>
-              <button type="button" className="handoff-action" disabled={isFallbackLoading} onClick={handleEndDiscussion}>
-                结束会议
-              </button>
-            </>
-          )}
-          {errorMessage && !isSettingsOpen ? (
-            <button type="button" className="soft-warning" onClick={() => setIsSettingsOpen(true)}>
-              <strong>{mainErrorText(errorMessage)}</strong>
-              <span>{errorMessage}</span>
-            </button>
-          ) : null}
-        </section>
-      </section>
+        <LiveMeetingView
+          discussion={discussion}
+          form={form}
+          setForm={setForm}
+          phase={phase}
+          asrStatus={asrStatus}
+          isRecording={isRecording}
+          isStarting={isStarting}
+          isAudioStarting={isAudioStarting}
+          isInvitingCodex={isInvitingCodex}
+          isFallbackLoading={isFallbackLoading}
+          isAudioFileUploading={isAudioFileUploading}
+          isSettingsOpen={isSettingsOpen}
+          isEnded={Boolean(isEnded)}
+          isDemoMode={isDemoMode}
+          fallbackLoaded={fallbackLoaded}
+          demoBootstrap={demoBootstrap}
+          isFollowingLatest={isFollowingLatest}
+          isGuidanceOpen={isGuidanceOpen}
+          setIsGuidanceOpen={setIsGuidanceOpen}
+          aiGuidance={aiGuidance}
+          setAiGuidance={setAiGuidance}
+          conversationItems={conversationItems}
+          finalUtteranceCount={finalUtteranceCount}
+          finalUtteranceCountForNextAi={finalUtteranceCountForNextAi}
+          speakerLabels={speakerLabels}
+          latestUsableAiTurn={latestUsableAiTurn}
+          resumeCommand={resumeCommand || null}
+          isCommandExpanded={isCommandExpanded}
+          copyStatus={copyStatus}
+          errorMessage={errorMessage}
+          primaryFunasrInputRef={primaryFunasrInputRef}
+          conversationFeedRef={conversationFeedRef}
+          onScrollConversation={handleConversationScroll}
+          onScrollConversationToLatest={scrollConversationToLatest}
+          onStart={handleStart}
+          onToggleAudioCapture={toggleAudioCapture}
+          onUploadAudio={handleUploadAudio}
+          onInviteCodex={handleInviteCodex}
+          onEndDiscussion={handleEndDiscussion}
+          onNewDiscussion={handleNewDiscussion}
+          onCopyCodexCommand={handleCopyCodexCommand}
+          onBindSpeaker={handleBindSpeaker}
+          onLoadFallbackAudio={handleLoadFallbackAudio}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenKnowledge={() => setIsKnowledgeOpen(true)}
+        />
       )}
 
-      <KnowledgeDemo
+      <DemoView
         discussion={discussion}
         isOpen={isKnowledgeOpen}
-        latestAiResponse={latestUsableAiTurn ? aiTurnDisplayText(latestUsableAiTurn) : ""}
+        latestAiResponse={latestUsableAiTurn?.response ?? ""}
         onClose={() => setIsKnowledgeOpen(false)}
       />
 
-      <HiddenSettings
+      <SettingsView
         activeRecentDiscussion={activeRecentDiscussion}
         appSettings={appSettings}
         asrDiagnostics={asrDiagnostics}
@@ -1406,942 +1029,3 @@ export function App() {
   );
 }
 
-function HiddenSettings(props: {
-  activeRecentDiscussion?: DiscussionSummaryDto;
-  appSettings: PublicAppSettingsDto | null;
-  asrDiagnostics: AsrDiagnostics;
-  asrStatus: AsrStatus;
-  copyStatus: string | null;
-  customers: CustomerSummaryDto[];
-  discussion: DiscussionDetailDto | null;
-  errorMessage: string | null;
-  finalUtteranceCount: number;
-  form: FormState;
-  taskMode: TaskMode;
-  isDiagnosticsOpen: boolean;
-  isAudioStarting: boolean;
-  isAudioFileUploading: boolean;
-  isFallbackLoading: boolean;
-  isOpen: boolean;
-  isRecording: boolean;
-  localStatus: string | null;
-  memoryDraft: MemoryDraftDto | null;
-  memoryDraftText: string;
-  recentDiscussions: DiscussionSummaryDto[];
-  resumeCommand: string;
-  selectedCustomer: CustomerDetailDto | null;
-  speakerLabels: string[];
-  visibleTimeline: TimelineItem[];
-  workspaceScope: WorkspaceDataScope;
-  onBindSpeaker: (speakerLabel: string, participant: ParticipantDto) => Promise<void>;
-  onClose: () => void;
-  onCopyCommand: (command: string) => Promise<void>;
-  onDeleteAudio: () => Promise<void>;
-  onDeleteDiscussion: () => Promise<void>;
-  onDraftMemory: () => Promise<void>;
-  onConfirmMemory: (content: string) => Promise<void>;
-  onSetMemoryDraftText: (value: string) => void;
-  onMarkAiFeedback: (aiTurnId: string, rating: "useful" | "bad") => Promise<void>;
-  onOpenDiscussion: (discussionId: string) => Promise<void>;
-  onReconnectAsr: () => Promise<void>;
-  onSaveCustomer: () => Promise<void>;
-  onSaveSettings: (update: Partial<PublicAppSettingsDto> & {
-    deepseekApiKey?: string;
-    openaiApiKey?: string;
-    volcengineApiKey?: string;
-    volcengineBrainApiKey?: string;
-    volcengineBrainBaseUrl?: string;
-    volcengineBrainModel?: string;
-  }) => Promise<void>;
-  onSelectCustomer: (customerId: string) => Promise<void>;
-  onSetDiagnosticsOpen: (value: boolean | ((current: boolean) => boolean)) => void;
-  onSetForm: (form: FormState | ((current: FormState) => FormState)) => void;
-  onToggleAudio: () => Promise<void>;
-  onUploadAudio: (file: File) => Promise<void>;
-}) {
-  const {
-    activeRecentDiscussion,
-    appSettings,
-    asrDiagnostics,
-    asrStatus,
-    copyStatus,
-    customers,
-    discussion,
-    errorMessage,
-    finalUtteranceCount,
-    form,
-    taskMode,
-    isDiagnosticsOpen,
-    isAudioStarting,
-    isAudioFileUploading,
-    isFallbackLoading,
-    isOpen,
-    isRecording,
-    localStatus,
-    memoryDraft,
-    memoryDraftText,
-    recentDiscussions,
-    resumeCommand,
-    selectedCustomer,
-    speakerLabels,
-    visibleTimeline,
-    workspaceScope
-  } = props;
-
-  return (
-    <div className={isOpen ? "settings-layer open" : "settings-layer"} aria-hidden={!isOpen}>
-      <button type="button" className="settings-backdrop" onClick={props.onClose} tabIndex={isOpen ? 0 : -1} aria-label="关闭隐藏设置" />
-      <aside className="settings-drawer" role="dialog" aria-modal="true" aria-label="设置">
-        <header className="drawer-header">
-          <div>
-            <span>{taskMode === "file" ? "文件转写设置" : "实时会议设置"}</span>
-            <h2>{taskMode === "file" ? "转写方式与隐私边界" : "客户、实时转写与 AI"}</h2>
-          </div>
-          <button type="button" onClick={props.onClose}>
-            关闭
-          </button>
-        </header>
-
-        {errorMessage ? <p className="drawer-alert">{errorMessage}</p> : null}
-        {localStatus ? <p className="drawer-alert neutral">{localStatus}</p> : null}
-        {workspaceScope === "demo" ? (
-          <p className="drawer-alert demo">演示模式的数据与正常会议完全分开；重置只会清理演示空间。</p>
-        ) : null}
-
-        {taskMode !== "file" ? <section className="drawer-section">
-          <h3>客户档案</h3>
-          {!discussion ? (
-            <>
-              <label>
-                选择客户
-                <select value={form.customerId} onChange={(event) => void props.onSelectCustomer(event.target.value)}>
-                  <option value="">未选择</option>
-                  {customers.map((customer) => (
-                    <option value={customer.id} key={customer.id}>
-                      {customer.displayName} · {customer.memoryCount} 条记忆
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                客户 ID
-                <input
-                  value={form.customerId}
-                  placeholder="alpha-consult"
-                  onChange={(event) =>
-                    props.onSetForm({
-                      ...form,
-                      customerId: event.target.value,
-                      customerName: form.customerName || event.target.value
-                    })
-                  }
-                />
-              </label>
-              <label>
-                客户名称
-                <input
-                  value={form.customerName}
-                  placeholder="客户公司名"
-                  onChange={(event) => props.onSetForm({ ...form, customerName: event.target.value })}
-                />
-              </label>
-              <label>
-                公司档案
-                <textarea
-                  value={form.customerProfile}
-                  onChange={(event) => props.onSetForm({ ...form, customerProfile: event.target.value })}
-                />
-              </label>
-              <button type="button" className="quiet-button" onClick={() => void props.onSaveCustomer()}>
-                保存客户档案
-              </button>
-            </>
-          ) : (
-            <div className="customer-readout">
-              <strong>{selectedCustomer?.displayName || discussion.customerId || "未选择客户"}</strong>
-              <span>{selectedCustomer ? `${selectedCustomer.memoryCount} 条滚动记忆` : "本次会议没有客户记忆上下文"}</span>
-            </div>
-          )}
-        </section> : null}
-
-        <section className="drawer-section">
-          <h3>{taskMode === "file" ? "文件转写方式" : "转写与大脑"}</h3>
-          <label>
-            ASR 转写
-            <select
-              value={form.asrProvider}
-              disabled={Boolean(discussion)}
-              onChange={(event) => {
-                const asrProvider = event.target.value as AsrProviderType;
-                props.onSetForm({ ...form, asrProvider });
-                void props.onSaveSettings({ asrProvider });
-              }}
-            >
-              {taskMode === "file" ? (
-                <>
-                  <option value="volcengine-file">火山录音文件识别 2.0（推荐）</option>
-                  <option value="funasr">本地 FunASR（隐私优先）</option>
-                  <option value="type4me">Type4Me 本地引擎（Qwen3-ASR）</option>
-                </>
-              ) : (
-                <>
-                  <option value="volcengine">火山豆包流式 ASR 2.0</option>
-                  <option value="type4me-live">Type4Me 本地引擎（Qwen3-ASR）</option>
-                  <option value="mock">Mock 演示</option>
-                </>
-              )}
-            </select>
-          </label>
-          {taskMode === "file" ? (
-            <p className="cloud-notice">{form.asrProvider === "volcengine-file" ? "录音会上传到火山引擎。本工作台当前限制 200MB；完整原始 M4A 与 MP3 分段均已实测。" : form.asrProvider === "type4me" ? "录音只交给本机 Type4Me 引擎（Qwen3-ASR）处理，不联网、不发送到火山。" : "录音只在本机交给 FunASR 处理，不发送到火山。"}</p>
-          ) : null}
-          {taskMode !== "file" ? <>
-          <label>
-            AI 大脑
-            <select
-              value={form.brainProvider}
-              disabled={Boolean(discussion)}
-              onChange={(event) => {
-                const brainProvider = event.target.value as BrainProviderType;
-                const brainModel = defaultModelForBrain(brainProvider, appSettings);
-                props.onSetForm({ ...form, brainProvider, brainModel });
-                void props.onSaveSettings({ brainProvider, brainModel });
-              }}
-            >
-              <option value="deepseek">DeepSeek（客户默认）</option>
-              <option value="volcengine">火山方舟 Ark（客户默认）</option>
-              <option value="claude-cli">Claude CLI（自用/客户自带订阅）</option>
-              <option value="codex-cli">Codex CLI（自用/客户自带订阅）</option>
-              <option value="openai">OpenAI GPT（预留）</option>
-              <option value="local-qwen">本地 Qwen（预留）</option>
-              <option value="mock">Mock</option>
-            </select>
-          </label>
-          <label>
-            模型
-            <input
-              value={form.brainProvider === "volcengine" ? (appSettings?.volcengineBrainModel || "ark-code-latest") : form.brainModel}
-              disabled={Boolean(discussion) || form.brainProvider === "volcengine"}
-              title={form.brainProvider === "volcengine" ? "火山方舟 Coding Plan 模型由服务器端统一配置，不可在客户端随意填写。" : undefined}
-              onChange={(event) => props.onSetForm({ ...form, brainModel: event.target.value })}
-              onBlur={() => void props.onSaveSettings({ brainModel: form.brainModel })}
-            />
-          </label>
-          <label>
-            DeepSeek API Key
-            <input
-              type="password"
-              placeholder={appSettings?.keys.deepseek ? "已保存，留空不改" : "填客户自己的 key"}
-              onBlur={(event) => {
-                if (event.target.value.trim()) void props.onSaveSettings({ deepseekApiKey: event.target.value.trim() });
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <label>
-            火山 ASR API Key
-            <input
-              type="password"
-              placeholder={appSettings?.keys.volcengine ? "已保存，留空不改" : "填火山自己的 key"}
-              onBlur={(event) => {
-                if (event.target.value.trim()) void props.onSaveSettings({ volcengineApiKey: event.target.value.trim() });
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <label>
-            火山流式 Resource-Id
-            <input
-              value={appSettings?.volcengineResourceId ?? "volc.seedasr.sauc.duration"}
-              onChange={(event) => void props.onSaveSettings({ volcengineResourceId: event.target.value })}
-            />
-          </label>
-          <label>
-            火山方舟 Ark API Key
-            <input
-              type="password"
-              placeholder={appSettings?.keys.volcengineBrain ? "已保存，留空不改" : "填火山方舟的 key"}
-              onBlur={(event) => {
-                if (event.target.value.trim()) void props.onSaveSettings({ volcengineBrainApiKey: event.target.value.trim() });
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <label>
-            火山方舟 Coding Plan 模型
-            <select
-              value={(() => {
-                const current = appSettings?.volcengineBrainModel || "ark-code-latest";
-                return CODING_PLAN_MODELS.some((model) => model.id === current) ? current : "ark-code-latest";
-              })()}
-              onChange={(event) => void props.onSaveSettings({ volcengineBrainModel: event.target.value })}
-            >
-              {CODING_PLAN_MODELS.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            火山方舟 Base URL
-            <input
-              value={appSettings?.volcengineBrainBaseUrl ?? "https://ark.cn-beijing.volces.com/api/coding/v3"}
-              onChange={(event) => void props.onSaveSettings({ volcengineBrainBaseUrl: event.target.value })}
-            />
-          </label>
-          <p className="cloud-notice">{cloudNotice(form.brainProvider, form.asrProvider)}</p>
-          </> : (
-            <details className="advanced-settings">
-              <summary>高级设置</summary>
-              <label>
-                火山 API Key
-                <input type="password" placeholder={appSettings?.keys.volcengine ? "凭证已配置，留空不改" : "凭证未配置"} onBlur={(event) => { if (event.target.value.trim()) void props.onSaveSettings({ volcengineApiKey: event.target.value.trim() }); event.currentTarget.value = ""; }} />
-              </label>
-              <label>本地项目目录<input value={form.projectPath} onChange={(event) => props.onSetForm({ ...form, projectPath: event.target.value })} /></label>
-            </details>
-          )}
-          {!discussion ? (
-            <label>
-              本地项目目录
-              <input
-                value={form.projectPath}
-                onChange={(event) => props.onSetForm({ ...form, projectPath: event.target.value })}
-              />
-            </label>
-          ) : (
-            <code className="path-readout">{discussion.projectPath}</code>
-          )}
-        </section>
-
-        {taskMode !== "file" ? <section className="drawer-section">
-          <h3>参与者</h3>
-          {!discussion ? (
-            <div className="participant-editor">
-              {form.participants.map((participant, index) => (
-                <div className="participant-line" key={participant.id}>
-                  <label>
-                    {`参与人 ${index + 1}`}
-                    <input
-                      value={participant.displayName}
-                      onChange={(event) =>
-                        props.onSetForm((current) => ({
-                          ...current,
-                          participants: updateParticipant(current.participants, participant.id, { displayName: event.target.value })
-                        }))
-                      }
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={form.participants.length <= 2}
-                    onClick={() => props.onSetForm((current) => ({ ...current, participants: removeParticipant(current.participants, participant.id) }))}
-                  >
-                    删除
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="quiet-button" onClick={() => props.onSetForm((current) => ({ ...current, participants: addParticipant(current.participants) }))}>
-                新增参与人
-              </button>
-            </div>
-          ) : (
-            <div className="voice-marker-list">
-              {discussion.participants.map((participant) => (
-                <span key={participant.id}>{participant.displayName}</span>
-              ))}
-            </div>
-          )}
-          {discussion && speakerLabels.length > 0 ? (
-            <div className="speaker-map">
-              <strong>识别到新声音</strong>
-              {speakerLabels.map((label) => (
-                <div key={label}>
-                  <span>{humanSpeakerLabel(label)}</span>
-                  {discussion.participants.map((participant) => (
-                    <button type="button" key={participant.id} onClick={() => void props.onBindSpeaker(label, participant)}>
-                      标为 {participant.displayName}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </section> : null}
-
-        {taskMode !== "file" && discussion?.mode === "real" ? (
-          <section className="drawer-section">
-            <h3>会议转写</h3>
-            {discussion.asrProvider === "volcengine" || discussion.asrProvider === "type4me-live" ? (
-              <>
-                <button
-                  type="button"
-                  className={isRecording || isAudioStarting ? "quiet-button live" : "quiet-button"}
-                  onClick={() => void props.onToggleAudio()}
-                  disabled={isAudioStarting || isFallbackLoading}
-                  aria-busy={isAudioStarting}
-                  aria-pressed={isRecording}
-                >
-                  {isAudioStarting ? "正在请求麦克风…" : isRecording ? "停止实时转写" : "启动实时转写"}
-                </button>
-                <p>状态：{isAudioStarting ? "等待浏览器麦克风授权" : statusText(asrStatus)}</p>
-              </>
-            ) : (
-              <p>
-                {discussion.asrProvider === "volcengine-file"
-                  ? "当前选择火山录音文件识别 2.0，上传后录音会发送到火山引擎云端。本工作台当前限制 200MB；MP3 分段和完整原始 M4A 直传均已实测。实际双人录音被模型分成 4 组说话人，身份需要人工确认。"
-                  : discussion.asrProvider === "type4me"
-                    ? "当前选择 Type4Me 本地引擎（Qwen3-ASR），录音只在本机识别，自动复用 Type4Me 的热词。"
-                    : "当前选择本地 FunASR，使用上传录音文件识别。"}
-              </p>
-            )}
-            <label>
-              {isAudioFileUploading ? "正在上传并等待识别，请勿重复操作" : "上传录音文件"}
-              <input
-                type="file"
-                accept="audio/*,video/*"
-                disabled={isFallbackLoading || isAudioFileUploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void props.onUploadAudio(file);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </label>
-          </section>
-        ) : null}
-
-        {discussion ? (
-          <section className="drawer-section">
-            <h3>状态与诊断</h3>
-            <button type="button" className="quiet-button" onClick={() => props.onSetDiagnosticsOpen((current) => !current)}>
-              {isDiagnosticsOpen || asrStatus === "failed" ? "收起诊断" : "查看诊断"}
-            </button>
-            {isDiagnosticsOpen || asrStatus === "failed" ? (
-              <div className="diagnostics-list">
-                {diagnosticItems(asrDiagnostics).map((item) => (
-                  <span className={item.done ? "done" : ""} key={item.label}>
-                    {item.label}
-                  </span>
-                ))}
-                {asrDiagnostics.errorMessage ? <p>{asrDiagnostics.errorMessage}</p> : null}
-                {asrDiagnostics.retryable ? (
-                  <button type="button" className="quiet-button" onClick={() => void props.onReconnectAsr()}>
-                    重新连接转写
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
-        {taskMode !== "file" ? <section className="drawer-section">
-          <h3>实时转写</h3>
-          {visibleTimeline.length > 0 ? (
-            <div className="transcript-drawer-list">
-              {visibleTimeline.map((item) => (
-                <p key={item.id}>
-                  <strong>{timelineLabel(discussion, item)}</strong>
-                  <span>{timelineText(item)}</span>
-                </p>
-              ))}
-            </div>
-          ) : (
-            <p>{discussion ? "还没有新的讨论片段。" : "开始说之后，这里会出现完整片段列表。"}</p>
-          )}
-        </section> : null}
-
-        {discussion && discussion.aiTurns.length > 0 ? (
-          <section className="drawer-section">
-            <h3>AI 发言反馈</h3>
-            {discussion.aiTurns
-              .filter(isUsableAiTurn)
-              .slice(-4)
-              .map((turn) => (
-                <div className="feedback-line" key={turn.id}>
-                  <p>{fragmentPreview(turn.response || "")}</p>
-                  {turn.status === "truncated" ? <small>本次回复未完整生成</small> : null}
-                  <button
-                    type="button"
-                    className={turn.feedbackRating === "useful" ? "selected" : ""}
-                    onClick={() => void props.onMarkAiFeedback(turn.id, "useful")}
-                  >
-                    有用/有增量
-                  </button>
-                  <button
-                    type="button"
-                    className={turn.feedbackRating === "bad" ? "selected" : ""}
-                    onClick={() => void props.onMarkAiFeedback(turn.id, "bad")}
-                  >
-                    蠢话/没用
-                  </button>
-                </div>
-              ))}
-          </section>
-        ) : null}
-
-        {discussion ? (
-          <section className="drawer-section">
-            <h3>会后记忆</h3>
-            <p>{discussion.customerId ? "草稿必须人工确认后才会进入该客户滚动记忆。" : "先在会前选择客户，才能沉淀客户记忆。"}</p>
-            <button type="button" className="quiet-button" disabled={!discussion.customerId || isFallbackLoading} onClick={() => void props.onDraftMemory()}>
-              起草记忆
-            </button>
-            {memoryDraft ? (
-              <label>
-                记忆草稿
-                <textarea
-                  value={memoryDraftText}
-                  onChange={(event) => props.onSetMemoryDraftText(event.target.value)}
-                />
-              </label>
-            ) : null}
-            {memoryDraft ? (
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => void props.onConfirmMemory(memoryDraftText)}
-              >
-                确认入库
-              </button>
-            ) : null}
-          </section>
-        ) : null}
-
-        <section className="drawer-section">
-          <h3>最近讨论</h3>
-          {activeRecentDiscussion ? (
-            <button type="button" className="recent-line active" onClick={() => void props.onOpenDiscussion(activeRecentDiscussion.id)}>
-              <strong>恢复进行中的讨论</strong>
-              <span>{activeRecentDiscussion.topic}</span>
-            </button>
-          ) : null}
-          {recentDiscussions
-            .filter((item) => item.id !== activeRecentDiscussion?.id)
-            .slice(0, 4)
-            .map((item) => (
-              <button type="button" className="recent-line" key={item.id} onClick={() => void props.onOpenDiscussion(item.id)}>
-                <strong>{item.status === "ended" ? "已结束" : "进行中"}</strong>
-                <span>
-                  {item.topic} · {item.finalUtteranceCount} 片段 · {item.aiTurnCount} 次 Agent
-                </span>
-              </button>
-            ))}
-          {recentDiscussions.length === 0 ? <p>暂无历史讨论。</p> : null}
-        </section>
-
-        {discussion ? (
-          <section className="drawer-section danger-zone">
-            <h3>备用操作</h3>
-            <p>
-              最终转写 {finalUtteranceCount} 条，音频资产 {discussion.audioAssets.length} 个。
-            </p>
-            {resumeCommand ? (
-              <button type="button" className="quiet-button" onClick={() => void props.onCopyCommand(resumeCommand)}>
-                {copyStatus === "已复制" ? "已复制续接命令" : "复制续接命令"}
-              </button>
-            ) : null}
-            <a href={discussionMarkdownExportUrl(discussion.id, workspaceScope)}>导出 Markdown</a>
-            <a href={discussionPackageExportUrl(discussion.id, workspaceScope)}>导出讨论包</a>
-            {discussion.audioAssets.length > 0 ? (
-              <button type="button" onClick={() => void props.onDeleteAudio()}>
-                删除音频
-              </button>
-            ) : null}
-            <button type="button" className="danger-button" onClick={() => void props.onDeleteDiscussion()}>
-              删除讨论
-            </button>
-          </section>
-        ) : null}
-      </aside>
-    </div>
-  );
-}
-
-function RecentTasks(props: {
-  items: DiscussionSummaryDto[];
-  onOpen: (discussionId: string) => Promise<void>;
-}) {
-  return (
-    <section className="recent-tasks" aria-label="最近任务">
-      <div className="recent-tasks-heading"><span>RECENT WORK</span><h2>最近任务</h2></div>
-      {props.items.length > 0 ? (
-        <div className="recent-task-list">
-          {props.items.slice(0, 5).map((item) => (
-            <button type="button" key={item.id} onClick={() => void props.onOpen(item.id)}>
-              <span className={isFileAsrProvider(item.asrProvider) ? "task-kind file" : "task-kind live"}>{isFileAsrProvider(item.asrProvider) ? "文件转写" : "实时会议"}</span>
-              <strong>{item.topic}</strong>
-              <small>{item.finalUtteranceCount} 条片段 · {item.status === "ended" ? "已结束" : "进行中"}</small>
-            </button>
-          ))}
-        </div>
-      ) : <p>暂无历史任务。完成一次转写或会议后，会从这里直接恢复。</p>}
-    </section>
-  );
-}
-
-function ConversationEntry(props: {
-  discussion: DiscussionDetailDto | null;
-  item: TimelineItem;
-}) {
-  const { discussion, item } = props;
-  if (item.type === "utterance") {
-    const name = speakerName(discussion, item.utterance);
-    const badge = speakerBadge(discussion, item.utterance);
-    const tone = speakerTone(item.utterance.speakerLabel);
-    return (
-      <article className={`conversation-entry human speaker-tone-${tone} ${item.utterance.isFinal ? "final" : "interim"}`}>
-        <span className="speaker-avatar" aria-hidden="true">{badge}</span>
-        <div className="message-card">
-          <header>
-            <strong>{name}</strong>
-            <time>{formatTimestamp(item.utterance.startMs)}</time>
-          </header>
-          <p>{item.utterance.text}</p>
-          {!item.utterance.isFinal ? <small>正在识别…</small> : null}
-        </div>
-      </article>
-    );
-  }
-
-  if (item.type === "aiTurn") {
-    const systemNotice = aiTurnSystemNotice(item.aiTurn.status);
-    return (
-      <article className="conversation-entry ai">
-        <span className="speaker-avatar ai-avatar" aria-hidden="true">AI</span>
-        <div className="message-card">
-          <header>
-            <strong>AI 会议参谋</strong>
-            <time>{formatClock(item.aiTurn.completedAt ?? item.aiTurn.createdAt)}</time>
-          </header>
-          <p>{item.aiTurn.response ?? "本轮分析已完成。"}</p>
-          {systemNotice ? <aside className="ai-response-system-note" role="note">{systemNotice}</aside> : null}
-        </div>
-      </article>
-    );
-  }
-
-  return (
-    <article className="conversation-entry ai thinking">
-      <span className="speaker-avatar ai-avatar" aria-hidden="true">AI</span>
-      <div className="message-card">
-        <header>
-          <strong>AI 会议参谋</strong>
-          <time>分析中</time>
-        </header>
-        <p>正在把最近片段组织成可推进的上下文。</p>
-      </div>
-    </article>
-  );
-}
-
-function KnowledgeDemo(props: {
-  discussion: DiscussionDetailDto | null;
-  isOpen: boolean;
-  latestAiResponse: string;
-  onClose: () => void;
-}) {
-  const { discussion, isOpen, latestAiResponse, onClose } = props;
-  const finalCount = discussion?.utterances.filter((utterance) => utterance.isFinal).length ?? 0;
-
-  return (
-    <div className={isOpen ? "knowledge-layer open" : "knowledge-layer"} aria-hidden={!isOpen}>
-      <button type="button" className="knowledge-backdrop" onClick={onClose} aria-label="关闭企业知识库 Demo" />
-      <aside className="knowledge-drawer" role="dialog" aria-modal="true" aria-label="企业知识库 Demo">
-        <header className="knowledge-drawer-header">
-          <div>
-            <span>Enterprise memory</span>
-            <h2>企业知识库</h2>
-          </div>
-          <div className="knowledge-drawer-actions">
-            <button type="button" onClick={onClose} aria-label="关闭">×</button>
-          </div>
-        </header>
-
-        <section className="knowledge-intro">
-          <span className="knowledge-signal" aria-hidden="true"><i /><i /><i /></span>
-          <div>
-            <strong>企业的每一次讨论，都在训练自己的决策上下文</strong>
-            <p>会议结束后，系统将关键决策、战略方向、客户信号和行动项沉淀为可追溯知识。下一次开会，AI 不再从零开始。</p>
-          </div>
-        </section>
-
-        <section className="knowledge-metrics" aria-label="知识库演示指标">
-          <article><strong>128</strong><span>场会议已沉淀</span><small>较上月 +18</small></article>
-          <article><strong>36</strong><span>项关键决策</span><small>9 项待复盘</small></article>
-          <article><strong>12</strong><span>条战略主线</span><small>覆盖 4 个部门</small></article>
-          <article><strong>8</strong><span>项风险预警</span><small>3 项需跟进</small></article>
-        </section>
-
-        <section className="knowledge-current-meeting">
-          <header>
-            <div>
-              <span>本次会议即将沉淀</span>
-              <h3>AI 参与企业会议：实时协同与知识沉淀</h3>
-            </div>
-            <em>{finalCount} 条有效片段</em>
-          </header>
-          <div className="knowledge-extracts">
-            <article>
-              <span>关键决策</span>
-              <p>{latestAiResponse ? fragmentPreview(latestAiResponse) : "AI 将从会议内容中提炼已确认的选择、负责人和判断依据。"}</p>
-            </article>
-            <article>
-              <span>后续行动</span>
-              <p>把明确的任务、负责人和时间节点转为可跟踪的行动项。</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="knowledge-library">
-          <header>
-            <span>Knowledge map</span>
-            <h3>企业知识地图</h3>
-          </header>
-          <div className="knowledge-card-grid">
-            <article><span>01</span><strong>战略部署</strong><p>长期目标、阶段重点与资源取舍</p><em>24 条知识</em></article>
-            <article><span>02</span><strong>关键决策</strong><p>结论、依据、参与者与后续结果</p><em>36 条知识</em></article>
-            <article><span>03</span><strong>客户洞察</strong><p>需求变化、异议、承诺与合作信号</p><em>51 条知识</em></article>
-            <article><span>04</span><strong>项目进展</strong><p>里程碑、阻塞点、负责人和复盘</p><em>67 条知识</em></article>
-          </div>
-        </section>
-
-        <section className="knowledge-evolution">
-          <header><span>AI 如何越来越懂企业</span><strong>从单次助理到企业决策伙伴</strong></header>
-          <ol>
-            <li><span>01</span><div><strong>第一次会议</strong><p>理解本次对话与显式背景</p></div></li>
-            <li><span>02</span><div><strong>持续积累</strong><p>连接历史决策、客户与项目脉络</p></div></li>
-            <li><span>03</span><div><strong>企业级 AI</strong><p>在权限范围内提供更贴合战略的建议</p></div></li>
-          </ol>
-        </section>
-
-        <footer className="knowledge-demo-note">
-          <strong>演示边界</strong>
-          <p>当前页面仅展示产品形态，不读取真实企业知识库。正式版本需接入客户授权的数据源、权限体系与可追溯引用。</p>
-        </footer>
-      </aside>
-    </div>
-  );
-}
-
-function sessionPhase(input: {
-  copyStatus: string | null;
-  discussion: DiscussionDetailDto | null;
-  finalUtteranceCount: number;
-  isInvitingCodex: boolean;
-  isRecording: boolean;
-}): SessionPhase {
-  if (!input.discussion) return "ready";
-  if (input.discussion.status === "ended") return input.copyStatus === "已复制" ? "handoff-copied" : "handoff-ready";
-  if (input.isInvitingCodex) return "agent-thinking";
-  if (input.discussion.aiTurns.some((turn) => isUsableAiTurnStatus(turn.status))) return "agent-joined";
-  if (input.finalUtteranceCount > 0) return "capturing";
-  return input.isRecording ? "listening" : "ready";
-}
-
-function phaseLabel(phase: SessionPhase): string {
-  const labels: Record<SessionPhase, string> = {
-    ready: "准备会议",
-    listening: "实时转写中",
-    capturing: "会议进行中",
-    "agent-thinking": "AI 思考中",
-    "agent-joined": "AI 已参与",
-    "handoff-ready": "会议已结束",
-    "handoff-copied": "上下文已复制"
-  };
-  return labels[phase];
-}
-
-function defaultCustomerProfile(customerId: string): string {
-  return [
-    `# ${customerId || "新客户"} 公司档案`,
-    "",
-    "## 公司做什么",
-    "待填写",
-    "",
-    "## 合伙人及分工",
-    "待填写",
-    "",
-    "## 行业术语",
-    "待填写",
-    "",
-    "## 长期目标",
-    "待填写",
-    ""
-  ].join("\n");
-}
-
-/** 火山方舟 Coding Plan 已验证可直调的模型（2026-10-09 用客户 Key 逐一实测）。 */
-const CODING_PLAN_MODELS: Array<{ id: string; label: string }> = [
-  { id: "ark-code-latest", label: "ark-code-latest（跟随控制台切换）" },
-  { id: "doubao-seed-2.1-pro", label: "Doubao-Seed-2.1-pro" },
-  { id: "doubao-seed-2.1-lite", label: "Doubao-Seed-2.1-lite" },
-  { id: "doubao-seed-2.1-turbo", label: "Doubao-Seed-2.1-turbo" },
-  { id: "doubao-seed-2.0-pro", label: "Doubao-Seed-2.0-pro" },
-  { id: "doubao-seed-2.0-code", label: "Doubao-Seed-2.0-code" },
-  { id: "doubao-seed-2.0-mini", label: "Doubao-Seed-2.0-mini" },
-  { id: "doubao-seed-2.0-lite", label: "Doubao-Seed-2.0-lite（即将下线）" },
-  { id: "doubao-seed-evolving", label: "Doubao-Seed-Evolving" },
-  { id: "deepseek-v4-pro", label: "DeepSeek-V4-Pro" },
-  { id: "deepseek-v4-flash", label: "DeepSeek-V4-Flash" },
-  { id: "deepseek-v4.1-flash", label: "DeepSeek-V4.1-Flash" },
-  { id: "kimi-k3", label: "Kimi-K3" },
-  { id: "kimi-k2.8-preview", label: "Kimi-K2.8-Preview" },
-  { id: "kimi-k2.7-code", label: "Kimi-K2.7-Code" },
-  { id: "glm-5.3", label: "GLM-5.3" },
-  { id: "glm-5.3-flash", label: "GLM-5.3-Flash" },
-  { id: "minimax-m3", label: "MiniMax-M3" }
-];
-
-function defaultModelForBrain(provider: BrainProviderType, settings: PublicAppSettingsDto | null): string {
-  if (provider === "deepseek") return settings?.deepseekModel || "deepseek-v4-pro";
-  if (provider === "claude-cli") return settings?.claudeModel || "opus";
-  if (provider === "codex-cli") return settings?.codexModel || "";
-  if (provider === "openai") return settings?.openaiModel || "gpt-5.6";
-  if (provider === "volcengine") return settings?.volcengineBrainModel || "ark-code-latest";
-  if (provider === "local-qwen") return "qwen-local";
-  return "mock";
-}
-
-function cloudNotice(brainProvider: BrainProviderType, asrProvider: AsrProviderType): string {
-  const exitsMachine: string[] = [];
-  if (brainProvider === "deepseek" || brainProvider === "openai" || brainProvider === "volcengine") exitsMachine.push("AI 大脑");
-  if (asrProvider === "volcengine") exitsMachine.push("实时转写音频");
-  if (asrProvider === "volcengine-file") exitsMachine.push("上传的录音文件");
-  if (exitsMachine.length === 0) return "本地 CLI / FunASR 路径：会议数据默认不出机。";
-  return `${exitsMachine.join("、")}会调用云端服务，请只使用客户自己的 key 和授权数据。`;
-}
-
-function statusText(status: AsrStatus): string {
-  if (status === "connected" || status === "receiving") return "转写中";
-  if (status === "connecting") return "连接中";
-  if (status === "failed") return "转写暂不可用";
-  if (status === "closed") return "已停止";
-  return "待命";
-}
-
-function diagnosticItems(diagnostics: AsrDiagnostics): Array<{ label: string; done: boolean }> {
-  return [
-    { label: "麦克风已授权", done: diagnostics.micAuthorized },
-    { label: "音频发送中", done: diagnostics.audioSending },
-    { label: "ASR 已连接", done: diagnostics.asrConnected },
-    { label: "已收到 ASR 返回", done: diagnostics.asrReceiving },
-    { label: "ASR 异常", done: Boolean(diagnostics.errorMessage) }
-  ];
-}
-
-function countFinalUtterancesSinceLastAiTurn(discussion: DiscussionDetailDto): number {
-  const finalUtterances = discussion.utterances.filter((utterance) => utterance.isFinal);
-  const processedAiTurns = discussion.aiTurns.filter((turn) => isUsableAiTurnStatus(turn.status));
-  const lastAiTurn = processedAiTurns.at(-1);
-  if (!lastAiTurn) return finalUtterances.length;
-  if (lastAiTurn.triggerEndUtteranceId) {
-    const boundaryIndex = finalUtterances.findIndex((utterance) => utterance.id === lastAiTurn.triggerEndUtteranceId);
-    return boundaryIndex >= 0 ? finalUtterances.slice(boundaryIndex + 1).length : finalUtterances.length;
-  }
-  if (lastAiTurn.completedAt) {
-    const completedAt = lastAiTurn.completedAt;
-    return finalUtterances.filter((utterance) => utterance.createdAt > completedAt).length;
-  }
-  return finalUtterances.length;
-}
-
-async function copyText(value: string): Promise<boolean> {
-  try {
-    await navigator.clipboard?.writeText(value);
-    return true;
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.append(textarea);
-    textarea.select();
-    const ok = document.execCommand("copy");
-    textarea.remove();
-    return ok;
-  }
-}
-
-function speakerName(discussion: DiscussionDetailDto | null, utterance: UtteranceDto): string {
-  const participant = discussion?.participants.find((item) => item.id === utterance.participantId);
-  return participant?.displayName ?? humanSpeakerLabel(utterance.speakerLabel);
-}
-
-function speakerBadge(discussion: DiscussionDetailDto | null, utterance: UtteranceDto): string {
-  const participant = discussion?.participants.find((item) => item.id === utterance.participantId);
-  if (!participant) return speakerLetter(utterance.speakerLabel);
-  const genericParticipantMatch = participant.displayName.trim().match(/(?:参与人|说话人)\s*([A-Z])$/i);
-  return genericParticipantMatch?.[1]?.toUpperCase() ?? participant.displayName.trim().slice(0, 1);
-}
-
-function humanSpeakerLabel(speakerLabel: string): string {
-  return `说话人 ${speakerLetter(speakerLabel)}`;
-}
-
-export function speakerLetter(speakerLabel: string): string {
-  const match = speakerLabel.match(/(\d+)(?!.*\d)/);
-  if (!match) return speakerLabel.trim().slice(0, 1).toUpperCase() || "?";
-  let value = Number(match[1]) + 1;
-  let result = "";
-  while (value > 0) {
-    value -= 1;
-    result = String.fromCharCode(65 + (value % 26)) + result;
-    value = Math.floor(value / 26);
-  }
-  return result;
-}
-
-function speakerTone(speakerLabel: string): number {
-  const match = speakerLabel.match(/(\d+)(?!.*\d)/);
-  if (match) return Number(match[1]) % 8;
-  return Array.from(speakerLabel).reduce((total, character) => total + character.charCodeAt(0), 0) % 8;
-}
-
-function timelineLabel(discussion: DiscussionDetailDto | null, item: TimelineItem): string {
-  if (item.type === "utterance") return speakerName(discussion, item.utterance);
-  if (item.type === "aiTurn") return "Agent";
-  return "Agent";
-}
-
-function timelineText(item: TimelineItem): string {
-  if (item.type === "utterance") return item.utterance.text;
-  if (item.type === "aiTurn") return aiTurnDisplayText(item.aiTurn);
-  return "Agent 正在思考...";
-}
-
-function fragmentPreview(value: string): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 88) return normalized;
-  return `${normalized.slice(0, 86)}...`;
-}
-
-function formatTimestamp(ms?: number): string {
-  if (!ms) return "00:00";
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function formatClock(value: string): string {
-  return new Date(value).toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function float32ToPcm16(input: Float32Array, sourceSampleRate: number, targetSampleRate: number): ArrayBuffer {
-  const outputLength = Math.max(1, Math.floor((input.length * targetSampleRate) / sourceSampleRate));
-  const output = new ArrayBuffer(outputLength * 2);
-  const view = new DataView(output);
-
-  for (let index = 0; index < outputLength; index += 1) {
-    const sourceIndex = Math.min(input.length - 1, Math.floor((index * sourceSampleRate) / targetSampleRate));
-    const sample = Math.max(-1, Math.min(1, input[sourceIndex]));
-    view.setInt16(index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-  }
-
-  return output;
-}
