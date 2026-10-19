@@ -4,6 +4,15 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 发布流程见 [RELEASE.md](RELEASE.md)。
 
+## [0.9.1] - 2026-10-20
+
+### ✨ 新功能
+- **client：** 首启模型安装向导（@nierainbow，[`148f7cc`](https://github.com/nierainbow/ai-meeting-workstation/commit/148f7cc)）
+- **models：** ModelScope 模型下载器与首启向导接口（@nierainbow，[`51632b4`](https://github.com/nierainbow/ai-meeting-workstation/commit/51632b4)）
+
+### 🐛 Bug 修复
+- **models：** 取消与断网时先冲盘已收字节，保证续传有起点（@nierainbow，[`d690908`](https://github.com/nierainbow/ai-meeting-workstation/commit/d690908)）
+
 ## [0.9.0] - 2026-10-19
 
 ### ✨ 新功能

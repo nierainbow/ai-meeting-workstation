@@ -4,6 +4,7 @@
 // 用法：
 //   node scripts/generate-changelog.mjs                     # 无 tag 时取全量历史；有 tag 时自上个 tag 起
 //   node scripts/generate-changelog.mjs --from <ref> --to <ref>
+//   node scripts/generate-changelog.mjs --from root  # 强制全量历史（首版打 tag 后重生成用）
 //   node scripts/generate-changelog.mjs --version 0.9.1 --date 2026-10-26
 //   node scripts/generate-changelog.mjs --dry-run           # 只打印，不写文件
 //   也可用 npm run changelog
@@ -46,8 +47,9 @@ const HEADER = [
 ].join("\n");
 
 const USAGE = [
-  "用法：node scripts/generate-changelog.mjs [--from <ref>] [--to <ref>] [--version <x.y.z>]",
-  "                                  [--date <YYYY-MM-DD>] [--out <path>] [--dry-run]"
+  "用法：node scripts/generate-changelog.mjs [--from <ref|root>] [--to <ref>] [--version <x.y.z>]",
+  "                                  [--date <YYYY-MM-DD>] [--out <path>] [--dry-run]",
+  "  --from root   强制全量历史（忽略默认的“上个 tag 起点”）"
 ].join("\n");
 
 function parseArgs(argv) {
@@ -100,7 +102,8 @@ function today() {
 }
 
 function readCommits(from, to) {
-  const range = from ? (to ? `${from}..${to}` : from) : to ? to : "HEAD";
+  const start = from === "root" ? null : from; // "root" 哨兵 = 全量历史
+  const range = start ? (to ? `${start}..${to}` : start) : to ? to : "HEAD";
   const SEP = "\x1f";
   const REC = "\x1e";
   const out = git([
@@ -192,7 +195,9 @@ function main() {
   const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const version = args.version ?? pkg.version;
 
+  // from = "root" 是哨兵：显式要求全量历史，并跳过下面「上个 tag 起点」的默认解析。
   let from = args.from ?? null;
+  const fromRef = from === "root" ? null : from; // 传给 git 的真实起点
   if (!from && !args.to) {
     try {
       from = git(["describe", "--tags", "--abbrev=0"], { stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -201,7 +206,18 @@ function main() {
     }
   }
 
-  const commits = readCommits(from, args.to ?? "HEAD");
+  const commits = readCommits(fromRef, args.to ?? "HEAD");
+  if (commits.length === 0) {
+    // 典型误用：刚给当前版本打完 tag 就再跑裸命令，范围变成 <tag>..HEAD（空）。
+    // 此时若直接生成，会用空小节覆盖该版本既有内容，必须拦住。
+    const alreadyGenerated = existingSectionDate(existing, version) !== null;
+    console.error(
+      `✗ 范围 ${from ? `${from}..` : ""}HEAD 内没有提交，拒绝生成${alreadyGenerated ? "（会覆盖 " + version + " 既有小节的）" : ""}空小节。`
+    );
+    console.error("  刚打完 tag 时请显式指定范围/版本，例如：");
+    console.error(`  node scripts/generate-changelog.mjs --from ${from ?? "<上个tag>"}~1 --to HEAD --version <新版本>`);
+    process.exit(1);
+  }
   const date = args.date ?? existingSectionDate(existing, version) ?? today();
   const url = repoUrl();
   const body = renderSection(version, date, commits, url);
