@@ -8,6 +8,7 @@ import { FunasrFileTranscriber } from "./asr/funasrFile";
 import { MockAsrService } from "./asr/mockAsr";
 import { VolcengineAsrProvider } from "./asr/volcengineAsr";
 import { VolcengineFileTranscriber } from "./asr/volcengineFile";
+import { Type4MeFileTranscriber } from "./asr/type4meFile";
 import { BrainProviderRegistry } from "./codex/brainRegistry";
 import { loadServerConfig } from "./config/serverConfig";
 import { openDatabase } from "./db/database";
@@ -75,6 +76,18 @@ const demoFunasrFileTranscriber = new FunasrFileTranscriber(
     hotwordFile: config.funasrHotwordFile
   }
 );
+const type4meFileTranscriberFor = (targetRepository: DiscussionRepository, targetStoragePaths: typeof storagePaths) =>
+  new Type4MeFileTranscriber(
+    { repository: targetRepository, storagePaths: targetStoragePaths },
+    {
+      serverPath: config.type4meAsr.serverPath,
+      modelPath: config.type4meAsr.modelPath,
+      port: config.type4meAsr.port,
+      hotwordsFile: config.type4meAsr.hotwordsFile,
+      timeoutMs: config.type4meAsr.fileTimeoutMs
+    }
+  );
+const type4meFileTranscriber = type4meFileTranscriberFor(repository, storagePaths);
 const demoAudioGateway = new AudioGateway({
   repository: demoRepository,
   eventHub,
@@ -188,6 +201,7 @@ app.use(
     memoryStore: demoMemoryStore,
     funasrFileTranscriber: demoFunasrFileTranscriber,
     getVolcengineFileTranscriber: () => getVolcengineFileTranscriber(demoRepository, demoStoragePaths),
+    type4meFileTranscriber: type4meFileTranscriberFor(demoRepository, demoStoragePaths),
     eventHub,
     storagePaths: demoStoragePaths
   })
@@ -203,6 +217,7 @@ app.use(
     memoryStore,
     funasrFileTranscriber,
     getVolcengineFileTranscriber: () => getVolcengineFileTranscriber(),
+    type4meFileTranscriber,
     eventHub,
     storagePaths
   })

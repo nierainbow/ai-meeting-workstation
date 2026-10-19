@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FunasrFileTranscriber } from "../asr/funasrFile";
 import type { VolcengineFileTranscriber } from "../asr/volcengineFile";
+import type { Type4MeFileTranscriber } from "../asr/type4meFile";
 import type { MockAsrService } from "../asr/mockAsr";
 import { BrainProviderRegistry } from "../codex/brainRegistry";
 import { MockCodexProvider } from "../codex/mockCodex";
@@ -65,6 +66,18 @@ beforeEach(async () => {
             return { transcript: "火山文件识别测试结果", utteranceCount: 1, transcriptPath: "/tmp/test.txt" };
           }
         }) as unknown as VolcengineFileTranscriber,
+      type4meFileTranscriber: {
+        transcribeUpload: async ({ discussionId }: { discussionId: string }) => {
+          repository.addUtterance({
+            discussionId,
+            speakerLabel: "speaker_0",
+            text: "Type4Me 识别测试结果",
+            isFinal: true,
+            source: "type4me"
+          });
+          return { transcript: "Type4Me 识别测试结果", utteranceCount: 1, transcriptPath: "/tmp/test-type4me.txt" };
+        }
+      } as unknown as Type4MeFileTranscriber,
       eventHub: new EventHub(),
       storagePaths,
       mockAsr: {

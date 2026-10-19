@@ -207,7 +207,7 @@ export async function uploadAudioFile(input: {
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
-        "x-filename": input.file.name
+        "x-filename": encodeURIComponent(input.file.name)
       },
       body: await input.file.arrayBuffer()
     }

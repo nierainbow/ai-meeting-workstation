@@ -3,7 +3,7 @@ import type { AsrProviderType, DiscussionSummaryDto } from "../../../shared/type
 export type TaskMode = "home" | "file" | "live";
 
 export function isFileAsrProvider(provider: AsrProviderType | undefined): boolean {
-  return provider === "volcengine-file" || provider === "funasr";
+  return provider === "volcengine-file" || provider === "funasr" || provider === "type4me";
 }
 
 export function taskModeForDiscussion(discussion: Pick<DiscussionSummaryDto, "asrProvider">): Exclude<TaskMode, "home"> {

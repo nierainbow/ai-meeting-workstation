@@ -662,18 +662,20 @@ export function App() {
     const activeDiscussion = discussion;
     const activeScope = workspaceScope;
     const isVolcengineFile = activeDiscussion.asrProvider === "volcengine-file";
+    const isType4me = activeDiscussion.asrProvider === "type4me";
+    const providerLabel = isVolcengineFile ? "火山录音文件识别" : isType4me ? "Type4Me 引擎" : "FunASR";
     await audioUploadFlightRef.current.run(async () => {
       setIsAudioFileUploading(true);
       setErrorMessage(null);
       setLocalStatus(
         isVolcengineFile
           ? "正在上传并等待火山识别，请勿重复操作。"
-          : "正在用本地 FunASR 识别上传录音，请勿重复操作。"
+          : `正在用本地 ${providerLabel} 识别上传录音，请勿重复操作。`
       );
       try {
         const result = await uploadAudioFile({ discussionId: activeDiscussion.id, file }, activeScope);
         setDiscussion(result.discussion);
-        setLocalStatus(`${isVolcengineFile ? "火山录音文件识别" : "FunASR"}已写入 ${result.utteranceCount} 条转写片段。`);
+        setLocalStatus(`${providerLabel}已写入 ${result.utteranceCount} 条转写片段。`);
       } catch (error) {
         setLocalStatus(null);
         setErrorMessage(error instanceof Error ? error.message : "录音文件识别失败。");
@@ -1023,6 +1025,10 @@ export function App() {
                     <input type="radio" name="file-provider" value="funasr" checked={form.asrProvider === "funasr"} onChange={() => setForm((current) => ({ ...current, asrProvider: "funasr" }))} />
                     <span><strong>本地 FunASR <em>隐私优先</em></strong><small>只在本机处理；准确度可能低于火山。</small></span>
                   </label>
+                  <label className={form.asrProvider === "type4me" ? "provider-choice selected" : "provider-choice"}>
+                    <input type="radio" name="file-provider" value="type4me" checked={form.asrProvider === "type4me"} onChange={() => setForm((current) => ({ ...current, asrProvider: "type4me" }))} />
+                    <span><strong>Type4Me 本地引擎 <em>Qwen3-ASR</em></strong><small>复用本机 Type4Me 的模型与热词，Apple Silicon 加速，全程离线。</small></span>
+                  </label>
                 </fieldset>
                 <label className="file-meta-field">转写名称（可选）<input value={fileTranscriptionName} placeholder="未填写时使用文件名" disabled={isAudioFileUploading} onChange={(event) => setFileTranscriptionName(event.target.value)} /></label>
                 <label className="file-meta-field">会议说明（可选）<textarea value={form.background} disabled={isAudioFileUploading} placeholder="例如：客户访谈、项目复盘" onChange={(event) => setForm({ ...form, background: event.target.value })} /></label>
@@ -1034,7 +1040,7 @@ export function App() {
           {discussion ? (
             <section className="file-result-summary" aria-label="转写摘要">
               <div><span>文件</span><strong>{selectedAudioFile?.name || discussion.title}</strong></div>
-              <div><span>转写方式</span><strong>{discussion.asrProvider === "volcengine-file" ? "火山录音文件识别 2.0" : "本地 FunASR"}</strong></div>
+              <div><span>转写方式</span><strong>{discussion.asrProvider === "volcengine-file" ? "火山录音文件识别 2.0" : discussion.asrProvider === "type4me" ? "Type4Me 本地 Qwen3-ASR" : "本地 FunASR"}</strong></div>
               <div><span>转写片段</span><strong>{finalUtteranceCount} 条</strong></div>
             </section>
           ) : null}
@@ -1107,7 +1113,7 @@ export function App() {
                   ? "实时记录中"
                   : finalUtteranceCount > 0
                     ? "已保存到本机"
-                    : discussion?.asrProvider === "funasr" || discussion?.asrProvider === "volcengine-file"
+                    : discussion?.asrProvider === "funasr" || discussion?.asrProvider === "volcengine-file" || discussion?.asrProvider === "type4me"
                       ? "等待上传录音"
                       : "等待会议开始"}
               </div>
@@ -1130,7 +1136,7 @@ export function App() {
                     <strong>{discussion ? "会议已经准备好" : "先建立本次会议"}</strong>
                     <p>
                       {discussion
-                        ? discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file"
+                        ? discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file" || discussion.asrProvider === "type4me"
                           ? "点击下方“选择录音文件转写”，这里会按顺序呈现识别结果和 AI 的发言。"
                           : "点击下方“开始实时转写”，这里会按顺序呈现每个人和 AI 的发言。"
                         : "写下主题后开始会议，实时转写与 AI 建议会出现在这里。"}
@@ -1275,7 +1281,7 @@ export function App() {
             </>
           ) : (
             <>
-              {discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file" ? (
+              {discussion.asrProvider === "funasr" || discussion.asrProvider === "volcengine-file" || discussion.asrProvider === "type4me" ? (
                 <>
                   <input
                     ref={primaryFunasrInputRef}
@@ -1569,6 +1575,8 @@ function HiddenSettings(props: {
                 <>
                   <option value="volcengine-file">火山录音文件识别 2.0（推荐）</option>
                   <option value="funasr">本地 FunASR（隐私优先）</option>
+                  <option value="type4me">Type4Me 本地引擎（Qwen3-ASR）</option>
+                  <option value="type4me">Type4Me 本地引擎（Qwen3-ASR）</option>
                 </>
               ) : (
                 <>
@@ -1579,7 +1587,7 @@ function HiddenSettings(props: {
             </select>
           </label>
           {taskMode === "file" ? (
-            <p className="cloud-notice">{form.asrProvider === "volcengine-file" ? "录音会上传到火山引擎。本工作台当前限制 200MB；完整原始 M4A 与 MP3 分段均已实测。" : "录音只在本机交给 FunASR 处理，不发送到火山。"}</p>
+            <p className="cloud-notice">{form.asrProvider === "volcengine-file" ? "录音会上传到火山引擎。本工作台当前限制 200MB；完整原始 M4A 与 MP3 分段均已实测。" : form.asrProvider === "type4me" ? "录音只交给本机 Type4Me 引擎（Qwen3-ASR）处理，不联网、不发送到火山。" : "录音只在本机交给 FunASR 处理，不发送到火山。"}</p>
           ) : null}
           {taskMode !== "file" ? <>
           <label>
@@ -1740,6 +1748,8 @@ function HiddenSettings(props: {
               <p>
                 {discussion.asrProvider === "volcengine-file"
                   ? "当前选择火山录音文件识别 2.0，上传后录音会发送到火山引擎云端。本工作台当前限制 200MB；MP3 分段和完整原始 M4A 直传均已实测。实际双人录音被模型分成 4 组说话人，身份需要人工确认。"
+                  : discussion.asrProvider === "type4me"
+                  ? "当前选择 Type4Me 本地引擎（Qwen3-ASR），录音只在本机识别，自动复用 Type4Me 的热词。"
                   : "当前选择本地 FunASR，使用上传录音文件识别。"}
               </p>
             )}

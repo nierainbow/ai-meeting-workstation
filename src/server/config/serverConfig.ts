@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { homedir } from "node:os";
 import type { DiscussionMode } from "../../shared/types";
 import { defaultPythonCommand, venvPythonPath } from "../process/platformCommand";
 
@@ -27,6 +28,13 @@ export type ServerConfig = {
     resourceId?: string;
     endpoint: string;
   };
+  type4meAsr: {
+    serverPath: string;
+    modelPath: string;
+    port: number;
+    hotwordsFile?: string;
+    fileTimeoutMs: number;
+  };
 };
 
 export function resolveFunasrRuntime(
@@ -47,7 +55,11 @@ export function resolveFunasrRuntime(
   return { pythonPath, asrHome };
 }
 
-export function loadServerConfig(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): ServerConfig {
+export function loadServerConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+  platform: NodeJS.Platform = process.platform
+): ServerConfig {
   const port = readPort(env.APP_PORT ?? "8787");
   const codexCliTimeoutMs = readPositiveNumber(env.CODEX_CLI_TIMEOUT_MS ?? "120000", "CODEX_CLI_TIMEOUT_MS");
   const funasrFileTimeoutMs = readPositiveNumber(
@@ -83,8 +95,31 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env, cwd = pro
       apiKey: env.VOLCENGINE_ASR_API_KEY || undefined,
       resourceId: env.VOLCENGINE_ASR_RESOURCE_ID || undefined,
       endpoint: env.VOLCENGINE_ASR_ENDPOINT ?? "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
+    },
+    type4meAsr: {
+      serverPath:
+        env.TYPE4ME_ASR_SERVER_PATH?.trim() ||
+        "/Applications/Type4Me.app/Contents/Resources/qwen3-asr-server-dist/qwen3-asr-server",
+      modelPath: env.TYPE4ME_ASR_MODEL_PATH?.trim() || "/Applications/Type4Me.app/Contents/Resources/Models/Qwen3-ASR",
+      port: readType4mePort(env.TYPE4ME_ASR_PORT ?? "8791"),
+      hotwordsFile: env.TYPE4ME_ASR_HOTWORDS_FILE?.trim() || defaultType4meHotwordsFile(platform),
+      fileTimeoutMs: readPositiveNumber(env.TYPE4ME_FILE_TIMEOUT_MS ?? "1800000", "TYPE4ME_FILE_TIMEOUT_MS")
     }
   };
+}
+
+// Type4Me 的 qwen3-asr-server 由 Type4Me 启动时会带上这个热词文件；工作台自己的实例默认复用同一份。
+function defaultType4meHotwordsFile(platform: NodeJS.Platform): string | undefined {
+  if (platform !== "darwin") return undefined;
+  return join(homedir(), "Library", "Application Support", "Type4Me", "hotwords.txt");
+}
+
+function readType4mePort(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {
+    throw new Error(`TYPE4ME_ASR_PORT 必须是 1-65535 的数字，请检查 .env。当前值：${value}`);
+  }
+  return parsed;
 }
 
 function readFunasrDevice(value: string): FunasrDevice {

@@ -10,6 +10,7 @@ import {
 } from "../../shared/schemas";
 import type { FunasrFileTranscriber } from "../asr/funasrFile";
 import type { VolcengineFileTranscriber } from "../asr/volcengineFile";
+import type { Type4MeFileTranscriber } from "../asr/type4meFile";
 import type { MockAsrService } from "../asr/mockAsr";
 import type { BrainProviderRegistry } from "../codex/brainRegistry";
 import { TruncatedAiResponseError } from "../codex/provider";
@@ -29,6 +30,7 @@ export function createDiscussionRouter(deps: {
   memoryStore: MemoryStore;
   funasrFileTranscriber: FunasrFileTranscriber;
   getVolcengineFileTranscriber: () => VolcengineFileTranscriber;
+  type4meFileTranscriber: Type4MeFileTranscriber;
   eventHub: EventHub;
   storagePaths: StoragePaths;
 }): Router {
@@ -117,14 +119,17 @@ export function createDiscussionRouter(deps: {
     }
 
     try {
+      const encodedHeader = readStringHeader(request.headers["x-filename"]);
       const filename =
-        readStringHeader(request.headers["x-filename"]) ||
+        (encodedHeader ? safeDecodeHeader(encodedHeader) : "") ||
         new URLSearchParams(String(request.url).split("?")[1] || "").get("filename") ||
         "upload.wav";
       const transcriber =
         discussion.asrProvider === "volcengine-file"
           ? deps.getVolcengineFileTranscriber()
-          : deps.funasrFileTranscriber;
+          : discussion.asrProvider === "type4me"
+            ? deps.type4meFileTranscriber
+            : deps.funasrFileTranscriber;
       const result = await transcriber.transcribeUpload({
         discussionId: discussion.id,
         filename,
@@ -386,4 +391,12 @@ export function createDiscussionRouter(deps: {
 function readStringHeader(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
+}
+
+function safeDecodeHeader(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
