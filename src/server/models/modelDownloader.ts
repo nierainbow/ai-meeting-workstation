@@ -463,13 +463,14 @@ export class ModelDownloader {
       });
       response.on("error", (error: Error) => {
         this.activeAbort = null;
-        // 响应是被取消掐断的，已收字节仍要落盘，不当成错误上报。
+        // 取消是自己掐断的，已收字节照旧落盘，不当成错误上报。
         if (this.cancelled) {
           stream.end(finish);
           return;
         }
-        stream.destroy();
-        reject(error);
+        // 断网/服务端掐断连接同理：已收到的字节就是下次续传的起点，必须先 end()
+        // 冲盘再上报错误，否则半截文件被丢掉，续传会退化成整份重下。
+        stream.end(() => reject(error));
       });
       response.pipe(stream);
       stream.on("error", (error: Error) => {
