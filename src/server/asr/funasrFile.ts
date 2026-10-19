@@ -43,8 +43,12 @@ export class FunasrFileTranscriber {
     config: FunasrFileTranscriberConfig = {}
   ) {
     this.pythonPath = config.pythonPath ?? defaultPythonCommand();
+    // 桌面壳里 server 被打成 sidecar/server/server.mjs，import.meta.url 指向 bundle 所在目录，
+    // 因此这里必须允许显式覆盖；sidecar 会把 scripts/transcribe_audio.py 放到 server.mjs 同级。
     this.scriptPath =
-      config.scriptPath ?? fileURLToPath(new URL("../../../scripts/transcribe_audio.py", import.meta.url));
+      config.scriptPath ??
+      (process.env.FUNASR_TRANSCRIBE_SCRIPT?.trim() ||
+        fileURLToPath(new URL("../../../scripts/transcribe_audio.py", import.meta.url)));
     this.asrHome = config.asrHome ?? process.cwd();
     // Keep the standalone fallback aligned with the production default. A
     // multi-hour recording can legitimately need tens of minutes on CPU.

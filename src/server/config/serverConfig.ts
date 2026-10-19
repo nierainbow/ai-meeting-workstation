@@ -12,6 +12,7 @@ export type ServerConfig = {
   port: number;
   dataDir: string;
   clientDevOrigin: string;
+  clientDistDir: string;
   defaultProjectPath: string;
   defaultMode: DiscussionMode;
   codexProvider: CodexProviderMode;
@@ -80,6 +81,7 @@ export function loadServerConfig(
     port,
     dataDir: resolve(env.APP_DATA_DIR ?? ".local-data"),
     clientDevOrigin: env.CLIENT_DEV_ORIGIN ?? "http://127.0.0.1:5173",
+    clientDistDir: resolve(cwd, env.CLIENT_DIST_DIR?.trim() || "dist/client"),
     defaultProjectPath: env.DISCUSSION_DEFAULT_PROJECT_PATH ?? process.cwd(),
     defaultMode: "real",
     codexProvider,

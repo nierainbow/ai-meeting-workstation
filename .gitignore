@@ -21,6 +21,8 @@ assets/demo/*
 !assets/demo/README.md
 !assets/demo/PROVENANCE.md
 *.wav
+# 声纹主库 pkl 永不进 git（只登记路径+sha256，见 sidecar/voiceprint/README.md）
+*.pkl
 *.m4a
 *.mp3
 *.mp4
@@ -54,3 +56,7 @@ _system/
 _系统/
 AGENTS.md
 CLAUDE.md
+
+# Tauri 桌面壳：构建产物与内嵌 sidecar（含 Node 运行时，约 148MB）不入库
+src-tauri/target/
+src-tauri/sidecar/

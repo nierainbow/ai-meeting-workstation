@@ -120,6 +120,26 @@ npm test
 npm run build
 ```
 
+### 桌面壳（Tauri）
+
+`src-tauri/` 是 Tauri 壳：窗口直接加载 `http://127.0.0.1:8787/`（与 Node sidecar 同源），
+因为客户端用 `window.location.host` 派生 WebSocket 地址，换端口会让 `/ws` 与 `/audio` 连错地方。
+
+```bash
+# 1) 组装内嵌 Node sidecar（server bundle + 精简 prod node_modules + 官方 Node 运行时）
+node scripts/build-sidecar.mjs --with-node
+
+# 2) 构建前端与壳（需要本机有 Rust 工具链）
+npm run build
+npm run tauri -- build
+```
+
+sidecar 约 148MB（Node 运行时 108MB + 精简依赖 39MB + server bundle 1.9MB），
+加上 Tauri 壳本身仍在 300MB 预算内。模型权重不打包进安装包，由模型下载向导按需拉取。
+
+生产模式下 Node server 会直接托管 `dist/client`（`CLIENT_DIST_DIR` 可覆盖），
+所以壳里不需要额外起 vite；未构建该目录时行为与开发模式完全一致。
+
 ## 配置
 
 后端启动时会自动读取本目录的 `.env`（可不创建）。新安装默认 AI 大脑是 DeepSeek，只有点击按钮或在实时转写中说出明确的 AI 邀请语才调用；没有 Key 会提示配置，不会偷偷切换到 Mock。Claude/Codex CLI 是可选后端，只有在页面主动选中且本机有相应 CLI 和用户自己的订阅时才使用。没有火山凭证时，火山实时转写会返回配置错误；本地 FunASR 文件转写仍可使用。

@@ -4,7 +4,15 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", ".local-data/**", "design/**", ".venv/**"]
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      ".local-data/**",
+      "design/**",
+      ".venv/**",
+      "src-tauri/target/**",
+      "src-tauri/sidecar/**"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

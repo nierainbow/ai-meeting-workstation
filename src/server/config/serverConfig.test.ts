@@ -123,6 +123,21 @@ describe("loadServerConfig", () => {
     );
   });
 
+  it("defaults the packaged client directory to dist/client under the repo root", () => {
+    const config = loadServerConfig({ CODEX_PROVIDER: "mock" });
+
+    expect(config.clientDistDir).toMatch(/dist[\\/]client$/);
+  });
+
+  it("allows overriding the packaged client directory for the desktop shell", () => {
+    const config = loadServerConfig({
+      CODEX_PROVIDER: "mock",
+      CLIENT_DIST_DIR: "/tmp/meeting-client-dist"
+    });
+
+    expect(config.clientDistDir).toBe(resolve("/tmp/meeting-client-dist"));
+  });
+
   it("requires CODEX_CLI_PATH when the CLI provider is enabled", () => {
     expect(() => loadServerConfig({ CODEX_PROVIDER: "cli", CODEX_CLI_PATH: "" })).toThrow("CODEX_CLI_PATH");
   });

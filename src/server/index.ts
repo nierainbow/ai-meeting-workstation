@@ -1,7 +1,8 @@
 import "dotenv/config";
 import express from "express";
+import { existsSync } from "node:fs";
 import { createServer } from "node:http";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { customerProfileSchema, settingsUpdateSchema } from "../shared/schemas";
 import { AudioGateway } from "./audio/audioGateway";
 import { FunasrFileTranscriber } from "./asr/funasrFile";
@@ -236,6 +237,16 @@ app.use(
     storagePaths
   })
 );
+
+// 桌面壳（Tauri）与打包发布都靠这一层把 dist/client 交给同源的 8787 端口；
+// 开发模式下该目录通常不存在，此时保持旧的 vite 5173 代理行为不变。
+if (existsSync(config.clientDistDir)) {
+  app.use(express.static(config.clientDistDir));
+  app.get(/^(?!\/api|\/audio|\/demo-audio|\/ws).*/, (_request, response) => {
+    response.sendFile(join(config.clientDistDir, "index.html"));
+  });
+  console.log(`静态客户端目录：${config.clientDistDir}`);
+}
 
 const secretStatus = settingsStore.secretStatus();
 

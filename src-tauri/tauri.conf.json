@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AI Meeting Workstation",
+  "version": "0.1.0",
+  "identifier": "com.rainbow.aimw",
+  "build": {
+    "frontendDist": "../dist/client",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run dev:client"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AI Meeting Workstation",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Productivity",
+    "copyright": "",
+    "shortDescription": "本地会议转写与纪要工作台",
+    "externalBin": [],
+    "resources": {
+      "sidecar/node_modules": "node_modules",
+      "sidecar/server": "server",
+      "sidecar/node/bin/node": "node-bin",
+      "sidecar/package.json": "package.json",
+      "../dist/client": "client",
+      "../config/hotwords": "config/hotwords"
+    }
+  }
+}
