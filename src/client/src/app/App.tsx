@@ -8,6 +8,8 @@ import type {
   DiscussionDetailDto,
   DiscussionSummaryDto,
   MemoryDraftDto,
+  ModelSetupStatusDto,
+  ModelTierId,
   ParticipantDto,
   PublicAppSettingsDto,
   WorkspaceDataScope
@@ -27,8 +29,12 @@ import {
   listDiscussions,
   listCustomers,
   loadDemoFallbackAudio,
+  cancelModelDownload,
+  getModelSetupStatus,
   markAiTurnFeedback,
   resetDemoMode,
+  skipModelSetup,
+  startModelDownload,
   saveCustomer,
   saveSettings,
   triggerAiTurn,
@@ -47,6 +53,7 @@ import { HomeView } from "./views/HomeView";
 import { FileTranscribeView } from "./views/FileTranscribeView";
 import { LiveMeetingView } from "./views/LiveMeetingView";
 import { SettingsView } from "./views/SettingsView";
+import { ModelSetupWizard } from "./views/ModelSetupWizard";
 import { DemoView } from "./views/DemoView";
 
 export { speakerLetter } from "./speaker";
@@ -85,6 +92,10 @@ export function App() {
   const [memoryDraftText, setMemoryDraftText] = useState("");
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [modelStatus, setModelStatus] = useState<ModelSetupStatusDto | null>(null);
+  const [isModelWizardOpen, setIsModelWizardOpen] = useState(false);
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTierId | null>(null);
+  const [isModelActionBusy, setIsModelActionBusy] = useState(false);
   const hasSentAudioRef = useRef(false);
   const primaryFunasrInputRef = useRef<HTMLInputElement | null>(null);
   const audioUploadFlightRef = useRef(new SingleFlight());
@@ -138,6 +149,34 @@ export function App() {
         setErrorMessage("读取本地配置失败，请确认后端服务正在运行。");
       });
   }, []);
+
+  // 首启模型向导：进应用时查一次本地模型状态，缺模型且没跳过过才弹向导。
+  useEffect(() => {
+    let disposed = false;
+    void refreshModelStatus().then((status) => {
+      if (disposed || !status) return;
+      if (status.needsSetup) {
+        setIsModelWizardOpen(true);
+        setSelectedModelTier((current) => current ?? status.tier);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+    // 只在首次挂载时检查一次，之后由下面的轮询 effect 负责刷新。
+  }, []);
+
+  // 下载中定时轮询进度；下载结束后再拉一次拿到终态。
+  useEffect(() => {
+    if (!isModelWizardOpen && !(modelStatus?.running ?? false)) return;
+    if (!modelStatus?.running) return;
+    const timer = window.setInterval(() => {
+      void refreshModelStatus();
+    }, 800);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [isModelWizardOpen, modelStatus?.running]);
 
   useEffect(() => {
     void loadRecentDiscussions("normal");
@@ -281,6 +320,68 @@ export function App() {
     setDiscussion(nextDiscussion);
   }
 
+  async function refreshModelStatus(): Promise<ModelSetupStatusDto | null> {
+    try {
+      const next = await getModelSetupStatus();
+      setModelStatus(next);
+      return next;
+    } catch {
+      // 模型状态读取失败不该打断主流程，向导下次启动再问。
+      return null;
+    }
+  }
+
+  async function handleStartModelDownload() {
+    const tier = selectedModelTier ?? modelStatus?.tier ?? "cloud";
+    setIsModelActionBusy(true);
+    try {
+      const next = await startModelDownload(tier);
+      setModelStatus(next);
+      setSelectedModelTier(next.tier);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "模型下载启动失败。");
+      await refreshModelStatus();
+    } finally {
+      setIsModelActionBusy(false);
+    }
+  }
+
+  async function handleCancelModelDownload() {
+    setIsModelActionBusy(true);
+    try {
+      await cancelModelDownload();
+      // 取消只保留临时分片，正式目录不留半成品；刷新后 needsSetup 仍为 true。
+      await refreshModelStatus();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "取消模型下载失败。");
+    } finally {
+      setIsModelActionBusy(false);
+    }
+  }
+
+  async function handleSkipModelSetup() {
+    setIsModelActionBusy(true);
+    try {
+      const next = await skipModelSetup();
+      setModelStatus(next);
+      setIsModelWizardOpen(false);
+      setLocalStatus("已跳过本地模型下载，可继续使用云端转写。");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "跳过模型下载失败。");
+    } finally {
+      setIsModelActionBusy(false);
+    }
+  }
+
+  function handleCloseModelWizard() {
+    // 下载中点关闭只是收起向导，下载继续在后台跑，下次打开还能看到进度。
+    setIsModelWizardOpen(false);
+  }
+
+  async function handleOpenModelSettings() {
+    await refreshModelStatus();
+    setIsModelWizardOpen(true);
+  }
   async function loadRecentDiscussions(scope: WorkspaceDataScope = workspaceScope) {
     try {
       const discussions = await listDiscussions(scope);
@@ -979,6 +1080,18 @@ export function App() {
         onClose={() => setIsKnowledgeOpen(false)}
       />
 
+      {modelStatus ? (
+        <ModelSetupWizard
+          status={modelStatus}
+          isOpen={isModelWizardOpen}
+          isBusy={isModelActionBusy}
+          onSelectTier={setSelectedModelTier}
+          onStart={() => void handleStartModelDownload()}
+          onCancel={() => void handleCancelModelDownload()}
+          onSkip={() => void handleSkipModelSetup()}
+          onClose={handleCloseModelWizard}
+        />
+      ) : null}
       <SettingsView
         activeRecentDiscussion={activeRecentDiscussion}
         appSettings={appSettings}
@@ -1016,6 +1129,7 @@ export function App() {
         onSetMemoryDraftText={setMemoryDraftText}
         onMarkAiFeedback={handleMarkAiFeedback}
         onOpenDiscussion={handleOpenDiscussion}
+        onOpenModelSetup={handleOpenModelSettings}
         onReconnectAsr={handleReconnectAsr}
         onSaveCustomer={handleSaveCustomer}
         onSaveSettings={handleSaveSettings}

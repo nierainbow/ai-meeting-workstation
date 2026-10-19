@@ -57,6 +57,7 @@ export function SettingsView(props: {
   onSetMemoryDraftText: (value: string) => void;
   onMarkAiFeedback: (aiTurnId: string, rating: "useful" | "bad") => Promise<void>;
   onOpenDiscussion: (discussionId: string) => Promise<void>;
+  onOpenModelSetup: () => Promise<void>;
   onReconnectAsr: () => Promise<void>;
   onSaveCustomer: () => Promise<void>;
   onSaveSettings: (update: Partial<PublicAppSettingsDto> & {
@@ -440,6 +441,14 @@ export function SettingsView(props: {
           </label>
         </section>
       ) : null}
+
+      <section className="drawer-section">
+        <h3>本地模型</h3>
+        <p>下载或继续安装本地语音模型；跳过后也可以在这里重新打开安装向导。</p>
+        <button type="button" className="quiet-button" onClick={() => void props.onOpenModelSetup()}>
+          打开模型安装向导
+        </button>
+      </section>
 
       {discussion ? (
         <section className="drawer-section">

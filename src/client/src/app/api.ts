@@ -10,6 +10,8 @@ import type {
   DiscussionDetailDto,
   DiscussionSummaryDto,
   MemoryDraftDto,
+  ModelSetupStatusDto,
+  ModelTierId,
   PublicAppSettingsDto,
   SpeakerBindingDto,
   WorkspaceDataScope
@@ -285,4 +287,24 @@ export function resetDemoMode(): Promise<DemoBootstrapDto> {
 
 export function loadDemoFallbackAudio(discussionId: string): Promise<DemoFallbackResultDto> {
   return requestJson<DemoFallbackResultDto>(`/api/demo/discussions/${discussionId}/fallback-audio`, { method: "POST" });
+}
+
+export function getModelSetupStatus(): Promise<ModelSetupStatusDto> {
+  return requestJson<ModelSetupStatusDto>("/api/models");
+}
+
+export function startModelDownload(tier: ModelTierId): Promise<ModelSetupStatusDto> {
+  return requestJson<ModelSetupStatusDto>("/api/models/start", {
+    method: "POST",
+    body: JSON.stringify({ tier })
+  });
+}
+
+export function cancelModelDownload(): Promise<ModelSetupStatusDto> {
+  return requestJson<ModelSetupStatusDto>("/api/models/cancel", { method: "POST" });
+}
+
+/** 「现在不下载」：记住这个决定，向导不再自动弹出。 */
+export function skipModelSetup(): Promise<ModelSetupStatusDto> {
+  return requestJson<ModelSetupStatusDto>("/api/models/skip", { method: "POST" });
 }
