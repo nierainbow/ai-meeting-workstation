@@ -1,6 +1,6 @@
 export type DiscussionStatus = "draft" | "active" | "ended";
 export type DiscussionMode = "mock" | "real";
-export type AsrProviderType = "mock" | "volcengine" | "volcengine-file" | "funasr" | "type4me";
+export type AsrProviderType = "mock" | "volcengine" | "volcengine-file" | "funasr" | "type4me" | "type4me-live";
 export type BrainProviderType = "mock" | "codex-cli" | "claude-cli" | "deepseek" | "openai" | "local-qwen";
 export type UtteranceSource = "mock" | "volcengine" | "volcengine-file" | "funasr" | "type4me" | "upload";
 export type AiTurnStatus = "pending" | "streaming" | "completed" | "truncated" | "failed";

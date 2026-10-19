@@ -9,6 +9,7 @@ import { MockAsrService } from "./asr/mockAsr";
 import { VolcengineAsrProvider } from "./asr/volcengineAsr";
 import { VolcengineFileTranscriber } from "./asr/volcengineFile";
 import { Type4MeFileTranscriber } from "./asr/type4meFile";
+import { Type4meAsrProvider } from "./asr/type4meLive";
 import { BrainProviderRegistry } from "./codex/brainRegistry";
 import { loadServerConfig } from "./config/serverConfig";
 import { openDatabase } from "./db/database";
@@ -52,6 +53,9 @@ const audioGateway = new AudioGateway({
   eventHub,
   storagePaths,
   getAsrProvider: (discussion) => {
+    if (discussion.asrProvider === "type4me" || discussion.asrProvider === "type4me-live") {
+      return type4meLiveAsrProvider();
+    }
     if (discussion.asrProvider !== "volcengine") return undefined;
     const settings = settingsStore.load();
     return new VolcengineAsrProvider({
@@ -88,12 +92,22 @@ const type4meFileTranscriberFor = (targetRepository: DiscussionRepository, targe
     }
   );
 const type4meFileTranscriber = type4meFileTranscriberFor(repository, storagePaths);
+const type4meLiveAsrProvider = () =>
+  new Type4meAsrProvider({
+    serverPath: config.type4meAsr.serverPath,
+    modelPath: config.type4meAsr.modelPath,
+    port: config.type4meAsr.port,
+    hotwordsFile: config.type4meAsr.hotwordsFile
+  });
 const demoAudioGateway = new AudioGateway({
   repository: demoRepository,
   eventHub,
   storagePaths: demoStoragePaths,
   socketPath: "/demo-audio",
   getAsrProvider: (discussion) => {
+    if (discussion.asrProvider === "type4me" || discussion.asrProvider === "type4me-live") {
+      return type4meLiveAsrProvider();
+    }
     if (discussion.asrProvider !== "volcengine") return undefined;
     const settings = settingsStore.load();
     return new VolcengineAsrProvider({

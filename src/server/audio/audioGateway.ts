@@ -70,6 +70,8 @@ export class AudioGateway {
       });
 
       const asrProvider = this.deps.getAsrProvider(discussion);
+      const isType4meLive = discussion.asrProvider === "type4me" || discussion.asrProvider === "type4me-live";
+      const utteranceSource: UtteranceDto["source"] = isType4meLive ? "type4me" : "volcengine";
       const credentialCheck = asrProvider?.checkCredentials() ?? {
         ok: false as const,
         message:
@@ -116,7 +118,7 @@ export class AudioGateway {
               this.deps.eventHub.publish(discussionId, { type: "asr.status", status: "receiving" });
               this.deps.eventHub.publish(discussionId, {
                 type: "transcript.partial",
-                utterance: createTransientPartialUtterance(discussionId, utterance)
+                utterance: createTransientPartialUtterance(discussionId, utterance, utteranceSource)
               });
             },
             onFinal: (utterance) => {
@@ -128,7 +130,7 @@ export class AudioGateway {
                 startMs: utterance.startMs,
                 endMs: utterance.endMs,
                 isFinal: true,
-                source: "volcengine"
+                source: utteranceSource
               });
               appendLog({
                 direction: "server",
@@ -242,7 +244,8 @@ function toBuffer(data: Buffer | ArrayBuffer | Buffer[]): Buffer {
 
 function createTransientPartialUtterance(
   discussionId: string,
-  utterance: Omit<UtteranceDto, "id" | "discussionId" | "createdAt" | "source" | "isFinal"> & { text: string }
+  utterance: Omit<UtteranceDto, "id" | "discussionId" | "createdAt" | "source" | "isFinal"> & { text: string },
+  source: UtteranceDto["source"] = "volcengine"
 ): UtteranceDto {
   const segmentKey = utterance.startMs ?? "live";
   return {
@@ -253,7 +256,7 @@ function createTransientPartialUtterance(
     startMs: utterance.startMs,
     endMs: utterance.endMs,
     isFinal: false,
-    source: "volcengine",
+    source,
     createdAt: new Date().toISOString()
   };
 }

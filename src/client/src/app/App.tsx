@@ -147,14 +147,14 @@ export function App() {
     discussionId: discussion?.id,
     isRecording,
     isActive: discussion?.status === "active",
-    isLiveAsr: discussion?.asrProvider === "volcengine"
+    isLiveAsr: discussion?.asrProvider === "volcengine" || discussion?.asrProvider === "type4me-live"
   });
   const inviteByVoiceRef = useRef<(guidance: string) => void>(() => undefined);
   liveMeetingRef.current = {
     discussionId: discussion?.id,
     isRecording,
     isActive: discussion?.status === "active",
-    isLiveAsr: discussion?.asrProvider === "volcengine"
+    isLiveAsr: discussion?.asrProvider === "volcengine" || discussion?.asrProvider === "type4me-live"
   };
   inviteByVoiceRef.current = (guidance) => { void inviteAi(guidance, "voice"); };
   if (!voiceInvitationRef.current) {
@@ -535,7 +535,7 @@ export function App() {
     } else {
       setSelectedAudioFile(null);
       setFileTranscriptionName("");
-      setForm((current) => ({ ...current, asrProvider: current.asrProvider === "volcengine" || current.asrProvider === "mock" ? current.asrProvider : "volcengine" }));
+      setForm((current) => ({ ...current, asrProvider: current.asrProvider === "volcengine" || current.asrProvider === "mock" || current.asrProvider === "type4me-live" ? current.asrProvider : "volcengine" }));
     }
   }
 
@@ -1217,7 +1217,7 @@ export function App() {
             <button type="button" className="insight-action" disabled={!discussion || isInvitingCodex || isFallbackLoading} onClick={handleInviteCodex}>
               {isInvitingCodex ? "AI 正在思考…" : "让 AI 分析最新讨论"}
             </button>
-            {discussion?.asrProvider === "volcengine" ? (
+            {discussion?.asrProvider === "volcengine" || discussion?.asrProvider === "type4me-live" ? (
               <p className="voice-invitation-hint">实时转写时也可以说：“AI，你怎么看这个方案？”</p>
             ) : null}
 
@@ -1576,11 +1576,11 @@ function HiddenSettings(props: {
                   <option value="volcengine-file">火山录音文件识别 2.0（推荐）</option>
                   <option value="funasr">本地 FunASR（隐私优先）</option>
                   <option value="type4me">Type4Me 本地引擎（Qwen3-ASR）</option>
-                  <option value="type4me">Type4Me 本地引擎（Qwen3-ASR）</option>
                 </>
               ) : (
                 <>
                   <option value="volcengine">火山豆包流式 ASR 2.0</option>
+                  <option value="type4me-live">Type4Me 本地引擎（Qwen3-ASR）</option>
                   <option value="mock">Mock 演示</option>
                 </>
               )}
@@ -1730,7 +1730,7 @@ function HiddenSettings(props: {
         {taskMode !== "file" && discussion?.mode === "real" ? (
           <section className="drawer-section">
             <h3>会议转写</h3>
-            {discussion.asrProvider === "volcengine" ? (
+            {discussion.asrProvider === "volcengine" || discussion.asrProvider === "type4me-live" ? (
               <>
                 <button
                   type="button"
