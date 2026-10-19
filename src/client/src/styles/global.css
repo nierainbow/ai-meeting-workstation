@@ -1149,6 +1149,28 @@ time {
   line-height: 22px;
 }
 
+.drawer-alert.warn {
+  border-left-color: #b4530a;
+  color: #7a3a06;
+  background: #fdf1e3;
+}
+
+.drawer-alert.warn strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.drawer-alert.warn ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.drawer-alert.warn li {
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .drawer-section {
   display: grid;
   gap: 12px;

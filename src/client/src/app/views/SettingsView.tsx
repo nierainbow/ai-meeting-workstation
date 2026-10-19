@@ -122,6 +122,22 @@ export function SettingsView(props: {
           <p className="drawer-alert demo">演示模式的数据与正常会议完全分开；重置只会清理演示空间。</p>
         ) : null}
 
+        {appSettings?.secrets?.plaintextOnDisk ? (
+          <div className="drawer-alert warn" role="alert">
+            <strong>密钥还以明文存在本机</strong>
+            <span>请重新保存一次上面的 API Key，工作台会把它写进系统钥匙串（macOS Keychain / Windows DPAPI），磁盘只留引用。</span>
+            <ul>
+              {appSettings.secrets.rotateReminder.map((reminder) => (
+                <li key={reminder}>{reminder}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {appSettings?.secrets && !appSettings.secrets.plaintextOnDisk && !appSettings.secrets.available ? (
+          <p className="drawer-alert warn">当前系统钥匙串不可用，本次运行的密钥只保存在进程内存中，重启后需要重新填写。</p>
+        ) : null}
+
         {taskMode !== "file" ? <section className="drawer-section">
           <h3>客户档案</h3>
           {!discussion ? (

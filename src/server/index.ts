@@ -237,6 +237,14 @@ app.use(
   })
 );
 
+const secretStatus = settingsStore.secretStatus();
+
 server.listen(config.port, config.host, () => {
   console.log(`AI Meeting Workstation server listening on http://${config.host}:${config.port}`);
+  const backendNote = secretStatus.available ? "" : "（不可用，本次运行使用进程内内存）";
+  console.log(`密钥存储后端：${secretStatus.backend}${backendNote}`);
+  if (secretStatus.plaintextOnDisk) {
+    console.warn(`[安全提醒] 检测到 ${settingsStore.settingsPath} 仍存在明文密钥，已尝试自动迁移到系统钥匙串。`);
+  }
+  for (const reminder of secretStatus.rotateReminder) console.warn(reminder);
 });

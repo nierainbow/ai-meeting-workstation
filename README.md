@@ -28,7 +28,7 @@ Windows 用户请跳到下一节「安装（Windows，测试版）」。
 3. 本地路线检查 ffmpeg；缺少时仅在你输入 `y` 后执行 `brew install ffmpeg`。如果没有 Homebrew，先自行从 [brew.sh](https://brew.sh/) 安装。安装器不会自动安装 Homebrew。云端路线跳过此步。
 4. 本地路线检查 Python 3.11–3.13；未安装时按提示安装 Python 3.13。安装器随后在本目录创建 `.venv/`：macOS 14+ Apple Silicon + Python 3.13 使用已实测的 81 包完整锁定文件 `requirements-macos-arm64-py313.lock.txt`，其他组合使用 `requirements.txt` 中固定的直接依赖（尚未做全平台实测）。然后下载 5 个模型到 `.modelscope_cache/`。云端路线跳过这些步骤。
 5. 两条路线都执行 `npm ci` 安装锁定的 Node 依赖。等窗口显示“安装完成”后，双击 `启动会议纪要.command`。
-6. 本地文件转写：页面选“本地 FunASR”，不需要火山或 DeepSeek Key。云端转写：在页面设置填自己的火山 ASR Key；需要 AI 参谋时再填自己的 DeepSeek Key。Key 也可写在本机 `.env` 的 `VOLCENGINE_ASR_API_KEY` / `DEEPSEEK_API_KEY`，但不要提交该文件。页面设置会保存在本机 `.local-data/`。
+6. 本地文件转写：页面选“本地 FunASR”，不需要火山或 DeepSeek Key。云端转写：在页面设置填自己的火山 ASR Key；需要 AI 参谋时再填自己的 DeepSeek Key。Key 也可写在本机 `.env` 的 `VOLCENGINE_ASR_API_KEY` / `DEEPSEEK_API_KEY`，但不要提交该文件。页面设置会保存在本机 `.local-data/`，其中 API Key 在保存时会写入系统钥匙串（macOS Keychain；Windows 版当前为 DPAPI 占位，尚未接入），`.local-data/settings.local.json` 里只保留 `keychain:aimw/<字段名>` 形式的引用。首次启动若检测到历史遗留的明文 Key，会自动尝试搬进钥匙串；若系统钥匙串不可用，则退回进程内存（重启后需重新填写），并在设置页给出轮换提醒。
 
 重复运行安装器时，已安装且版本未变的依赖、已完整下载的模型会跳过。模型下载中断可重新运行。首次下载通常需要数 GB 空间和稳定网络；具体耗时取决于网络与机器，不能保证固定分钟数。当前从零验收只覆盖 macOS 26.6.1 / Apple Silicon / Python 3.13；旧版 macOS、Intel Mac 和其他 Python 小版本仍需单独验收。
 

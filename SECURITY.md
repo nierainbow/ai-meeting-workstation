@@ -13,6 +13,10 @@ If this project is hosted under your own fork, use GitHub's private vulnerabilit
 
 ## Sensitive Data
 
+AI keys entered in the settings page are stored in the OS credential store (macOS Keychain via the `security` CLI; the Windows DPAPI path is a stub pending real-machine verification). The on-disk `settings.local.json` only keeps `keychain:aimw/<field>` references, never the key itself.
+
+Keys that were previously saved as plaintext may already be exposed, so the settings page shows a reminder to rotate them at each vendor console (Volcengine Ark Coding Plan, DeepSeek, OpenAI, Volcengine ASR).
+
 AI Discussion is local-first, but local data can contain sensitive audio, transcripts, and discussion exports.
 
 Never commit:

@@ -130,6 +130,12 @@ export type PublicAppSettingsDto = {
     settingsPath: string;
     customersDir: string;
   };
+  secrets?: {
+    backend: string;
+    available: boolean;
+    plaintextOnDisk: boolean;
+    rotateReminder: string[];
+  };
 };
 
 export type CustomerSummaryDto = {
