@@ -1,7 +1,7 @@
 export type DiscussionStatus = "draft" | "active" | "ended";
 export type DiscussionMode = "mock" | "real";
 export type AsrProviderType = "mock" | "volcengine" | "volcengine-file" | "funasr" | "type4me" | "type4me-live";
-export type BrainProviderType = "mock" | "codex-cli" | "claude-cli" | "deepseek" | "openai" | "local-qwen";
+export type BrainProviderType = "mock" | "codex-cli" | "claude-cli" | "deepseek" | "openai" | "local-qwen" | "volcengine";
 export type UtteranceSource = "mock" | "volcengine" | "volcengine-file" | "funasr" | "type4me" | "upload";
 export type AiTurnStatus = "pending" | "streaming" | "completed" | "truncated" | "failed";
 export type AiTurnType = "summary" | "challenge" | "risk" | "next_step";
@@ -110,6 +110,8 @@ export type PublicAppSettingsDto = {
   codexModel?: string;
   deepseekModel: string;
   openaiModel: string;
+  volcengineBrainModel: string;
+  volcengineBrainBaseUrl: string;
   volcengineResourceId: string;
   volcengineEndpoint: string;
   recentMemoryCount: number;
@@ -118,6 +120,7 @@ export type PublicAppSettingsDto = {
     deepseek: boolean;
     openai: boolean;
     volcengine: boolean;
+    volcengineBrain: boolean;
   };
   cli: {
     claudePath: string;

@@ -176,7 +176,7 @@ export function App() {
           projectPath: config.defaultProjectPath,
           asrProvider: config.settings.asrProvider,
           brainProvider: config.settings.brainProvider,
-          brainModel: config.settings.brainModel
+          brainModel: defaultModelForBrain(config.settings.brainProvider, config.settings)
         }));
       })
       .catch(() => {
@@ -386,6 +386,9 @@ export function App() {
     deepseekApiKey?: string;
     openaiApiKey?: string;
     volcengineApiKey?: string;
+    volcengineBrainApiKey?: string;
+    volcengineBrainBaseUrl?: string;
+    volcengineBrainModel?: string;
   }) {
     const next = await saveSettings(update);
     setAppSettings(next);
@@ -393,7 +396,7 @@ export function App() {
       ...current,
       asrProvider: next.asrProvider,
       brainProvider: next.brainProvider,
-      brainModel: next.brainModel
+      brainModel: defaultModelForBrain(next.brainProvider, next)
     }));
     setLocalStatus("设置已保存到本机。");
   }
@@ -456,7 +459,7 @@ export function App() {
       projectPath: current.projectPath,
       asrProvider: appSettings?.asrProvider ?? current.asrProvider,
       brainProvider: appSettings?.brainProvider ?? current.brainProvider,
-      brainModel: appSettings?.brainModel ?? current.brainModel
+      brainModel: defaultModelForBrain(appSettings?.brainProvider ?? current.brainProvider, appSettings)
     }));
     setCustomers(await listCustomers("normal"));
     setRecentDiscussions(await listDiscussions("normal"));
@@ -1446,6 +1449,9 @@ function HiddenSettings(props: {
     deepseekApiKey?: string;
     openaiApiKey?: string;
     volcengineApiKey?: string;
+    volcengineBrainApiKey?: string;
+    volcengineBrainBaseUrl?: string;
+    volcengineBrainModel?: string;
   }) => Promise<void>;
   onSelectCustomer: (customerId: string) => Promise<void>;
   onSetDiagnosticsOpen: (value: boolean | ((current: boolean) => boolean)) => void;
@@ -1603,6 +1609,7 @@ function HiddenSettings(props: {
               }}
             >
               <option value="deepseek">DeepSeek（客户默认）</option>
+              <option value="volcengine">火山方舟 Ark（客户默认）</option>
               <option value="claude-cli">Claude CLI（自用/客户自带订阅）</option>
               <option value="codex-cli">Codex CLI（自用/客户自带订阅）</option>
               <option value="openai">OpenAI GPT（预留）</option>
@@ -1613,8 +1620,9 @@ function HiddenSettings(props: {
           <label>
             模型
             <input
-              value={form.brainModel}
-              disabled={Boolean(discussion)}
+              value={form.brainProvider === "volcengine" ? (appSettings?.volcengineBrainModel || "ark-code-latest") : form.brainModel}
+              disabled={Boolean(discussion) || form.brainProvider === "volcengine"}
+              title={form.brainProvider === "volcengine" ? "火山方舟 Coding Plan 模型由服务器端统一配置，不可在客户端随意填写。" : undefined}
               onChange={(event) => props.onSetForm({ ...form, brainModel: event.target.value })}
               onBlur={() => void props.onSaveSettings({ brainModel: form.brainModel })}
             />
@@ -1646,6 +1654,40 @@ function HiddenSettings(props: {
             <input
               value={appSettings?.volcengineResourceId ?? "volc.seedasr.sauc.duration"}
               onChange={(event) => void props.onSaveSettings({ volcengineResourceId: event.target.value })}
+            />
+          </label>
+          <label>
+            火山方舟 Ark API Key
+            <input
+              type="password"
+              placeholder={appSettings?.keys.volcengineBrain ? "已保存，留空不改" : "填火山方舟的 key"}
+              onBlur={(event) => {
+                if (event.target.value.trim()) void props.onSaveSettings({ volcengineBrainApiKey: event.target.value.trim() });
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <label>
+            火山方舟 Coding Plan 模型
+            <select
+              value={(() => {
+                const current = appSettings?.volcengineBrainModel || "ark-code-latest";
+                return CODING_PLAN_MODELS.some((model) => model.id === current) ? current : "ark-code-latest";
+              })()}
+              onChange={(event) => void props.onSaveSettings({ volcengineBrainModel: event.target.value })}
+            >
+              {CODING_PLAN_MODELS.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            火山方舟 Base URL
+            <input
+              value={appSettings?.volcengineBrainBaseUrl ?? "https://ark.cn-beijing.volces.com/api/coding/v3"}
+              onChange={(event) => void props.onSaveSettings({ volcengineBrainBaseUrl: event.target.value })}
             />
           </label>
           <p className="cloud-notice">{cloudNotice(form.brainProvider, form.asrProvider)}</p>
@@ -1749,8 +1791,8 @@ function HiddenSettings(props: {
                 {discussion.asrProvider === "volcengine-file"
                   ? "当前选择火山录音文件识别 2.0，上传后录音会发送到火山引擎云端。本工作台当前限制 200MB；MP3 分段和完整原始 M4A 直传均已实测。实际双人录音被模型分成 4 组说话人，身份需要人工确认。"
                   : discussion.asrProvider === "type4me"
-                  ? "当前选择 Type4Me 本地引擎（Qwen3-ASR），录音只在本机识别，自动复用 Type4Me 的热词。"
-                  : "当前选择本地 FunASR，使用上传录音文件识别。"}
+                    ? "当前选择 Type4Me 本地引擎（Qwen3-ASR），录音只在本机识别，自动复用 Type4Me 的热词。"
+                    : "当前选择本地 FunASR，使用上传录音文件识别。"}
               </p>
             )}
             <label>
@@ -2129,18 +2171,41 @@ function defaultCustomerProfile(customerId: string): string {
   ].join("\n");
 }
 
+/** 火山方舟 Coding Plan 已验证可直调的模型（2026-10-09 用客户 Key 逐一实测）。 */
+const CODING_PLAN_MODELS: Array<{ id: string; label: string }> = [
+  { id: "ark-code-latest", label: "ark-code-latest（跟随控制台切换）" },
+  { id: "doubao-seed-2.1-pro", label: "Doubao-Seed-2.1-pro" },
+  { id: "doubao-seed-2.1-lite", label: "Doubao-Seed-2.1-lite" },
+  { id: "doubao-seed-2.1-turbo", label: "Doubao-Seed-2.1-turbo" },
+  { id: "doubao-seed-2.0-pro", label: "Doubao-Seed-2.0-pro" },
+  { id: "doubao-seed-2.0-code", label: "Doubao-Seed-2.0-code" },
+  { id: "doubao-seed-2.0-mini", label: "Doubao-Seed-2.0-mini" },
+  { id: "doubao-seed-2.0-lite", label: "Doubao-Seed-2.0-lite（即将下线）" },
+  { id: "doubao-seed-evolving", label: "Doubao-Seed-Evolving" },
+  { id: "deepseek-v4-pro", label: "DeepSeek-V4-Pro" },
+  { id: "deepseek-v4-flash", label: "DeepSeek-V4-Flash" },
+  { id: "deepseek-v4.1-flash", label: "DeepSeek-V4.1-Flash" },
+  { id: "kimi-k3", label: "Kimi-K3" },
+  { id: "kimi-k2.8-preview", label: "Kimi-K2.8-Preview" },
+  { id: "kimi-k2.7-code", label: "Kimi-K2.7-Code" },
+  { id: "glm-5.3", label: "GLM-5.3" },
+  { id: "glm-5.3-flash", label: "GLM-5.3-Flash" },
+  { id: "minimax-m3", label: "MiniMax-M3" }
+];
+
 function defaultModelForBrain(provider: BrainProviderType, settings: PublicAppSettingsDto | null): string {
   if (provider === "deepseek") return settings?.deepseekModel || "deepseek-v4-pro";
   if (provider === "claude-cli") return settings?.claudeModel || "opus";
   if (provider === "codex-cli") return settings?.codexModel || "";
   if (provider === "openai") return settings?.openaiModel || "gpt-5.6";
+  if (provider === "volcengine") return settings?.volcengineBrainModel || "ark-code-latest";
   if (provider === "local-qwen") return "qwen-local";
   return "mock";
 }
 
 function cloudNotice(brainProvider: BrainProviderType, asrProvider: AsrProviderType): string {
   const exitsMachine: string[] = [];
-  if (brainProvider === "deepseek" || brainProvider === "openai") exitsMachine.push("AI 大脑");
+  if (brainProvider === "deepseek" || brainProvider === "openai" || brainProvider === "volcengine") exitsMachine.push("AI 大脑");
   if (asrProvider === "volcengine") exitsMachine.push("实时转写音频");
   if (asrProvider === "volcengine-file") exitsMachine.push("上传的录音文件");
   if (exitsMachine.length === 0) return "本地 CLI / FunASR 路径：会议数据默认不出机。";

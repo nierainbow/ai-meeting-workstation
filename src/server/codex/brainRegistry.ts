@@ -50,6 +50,21 @@ export class BrainProviderRegistry {
         timeoutMs: 90000
       });
     }
+    if (provider === "volcengine") {
+      // 火山方舟「大脑」走 Coding Plan 专属端点（/api/coding/v3），只有白名单模型
+      // （ark-code-latest / doubao-seed-2.0-code 等）可用。该 key 与模型在服务器端
+      // 通过 volcengineBrainModel 统一配置，绝不能沿用讨论里可能残留的 deepseek-* 等
+      // 非兼容模型名，否则会被方舟直接拒绝（"does not support the coding plan feature"）。
+      // 因此此处一律使用服务端配置模型，忽略任何外部传入的 modelOverride。
+      return new OpenAiCompatibleProvider({
+        label: "火山方舟",
+        baseUrl: settings.volcengineBrainBaseUrl,
+        apiKey: settings.volcengineBrainApiKey,
+        model: settings.volcengineBrainModel,
+        timeoutMs: 90000,
+        endpointPath: "/chat/completions"
+      });
+    }
     if (provider === "local-qwen") {
       throw new Error("本地 Qwen 大脑接口已预留，但本轮未实现。");
     }

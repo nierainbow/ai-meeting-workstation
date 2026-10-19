@@ -23,6 +23,9 @@ export type LocalSettings = {
   volcengineApiKey: string;
   volcengineResourceId: string;
   volcengineEndpoint: string;
+  volcengineBrainApiKey: string;
+  volcengineBrainBaseUrl: string;
+  volcengineBrainModel: string;
   recentMemoryCount: number;
   cloudAcknowledged: boolean;
 };
@@ -46,6 +49,9 @@ const DEFAULT_SETTINGS: LocalSettings = {
   volcengineApiKey: "",
   volcengineResourceId: "volc.seedasr.sauc.duration",
   volcengineEndpoint: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async",
+  volcengineBrainApiKey: "",
+  volcengineBrainBaseUrl: "https://ark.cn-beijing.volces.com/api/coding/v3",
+  volcengineBrainModel: "ark-code-latest",
   recentMemoryCount: 5,
   cloudAcknowledged: false
 };
@@ -76,7 +82,10 @@ export class LocalSettingsStore {
       openaiApiKey: readEnv(this.env.OPENAI_API_KEY, merged.openaiApiKey),
       volcengineApiKey: readEnv(this.env.VOLCENGINE_ASR_API_KEY, merged.volcengineApiKey),
       volcengineResourceId: readEnv(this.env.VOLCENGINE_ASR_RESOURCE_ID, merged.volcengineResourceId),
-      volcengineEndpoint: readEnv(this.env.VOLCENGINE_ASR_ENDPOINT, merged.volcengineEndpoint)
+      volcengineEndpoint: readEnv(this.env.VOLCENGINE_ASR_ENDPOINT, merged.volcengineEndpoint),
+      volcengineBrainApiKey: readEnv(this.env.VOLCENGINE_BRAIN_API_KEY, merged.volcengineBrainApiKey),
+      volcengineBrainBaseUrl: readEnv(this.env.VOLCENGINE_BRAIN_BASE_URL, merged.volcengineBrainBaseUrl),
+      volcengineBrainModel: readEnv(this.env.VOLCENGINE_BRAIN_MODEL, merged.volcengineBrainModel)
     };
   }
 
@@ -95,6 +104,9 @@ export class LocalSettingsStore {
         openaiModel: update.openaiModel,
         volcengineResourceId: update.volcengineResourceId,
         volcengineEndpoint: update.volcengineEndpoint,
+        volcengineBrainApiKey: update.volcengineBrainApiKey,
+        volcengineBrainBaseUrl: update.volcengineBrainBaseUrl,
+        volcengineBrainModel: update.volcengineBrainModel,
         recentMemoryCount: update.recentMemoryCount,
         cloudAcknowledged: update.cloudAcknowledged
       })
@@ -103,6 +115,9 @@ export class LocalSettingsStore {
     if (update.deepseekApiKey !== undefined) nextFileSettings.deepseekApiKey = update.deepseekApiKey.trim();
     if (update.openaiApiKey !== undefined) nextFileSettings.openaiApiKey = update.openaiApiKey.trim();
     if (update.volcengineApiKey !== undefined) nextFileSettings.volcengineApiKey = update.volcengineApiKey.trim();
+    if (update.volcengineBrainApiKey !== undefined) nextFileSettings.volcengineBrainApiKey = update.volcengineBrainApiKey.trim();
+    if (update.volcengineBrainBaseUrl !== undefined) nextFileSettings.volcengineBrainBaseUrl = update.volcengineBrainBaseUrl.trim();
+    if (update.volcengineBrainModel !== undefined) nextFileSettings.volcengineBrainModel = update.volcengineBrainModel;
 
     mkdirSync(this.storagePaths.dataDir, { recursive: true });
     writeFileSync(this.settingsPath, `${JSON.stringify(nextFileSettings, null, 2)}\n`, "utf8");
@@ -120,6 +135,8 @@ export class LocalSettingsStore {
       codexModel: settings.codexModel || undefined,
       deepseekModel: settings.deepseekModel,
       openaiModel: settings.openaiModel,
+      volcengineBrainModel: settings.volcengineBrainModel,
+      volcengineBrainBaseUrl: settings.volcengineBrainBaseUrl,
       volcengineResourceId: settings.volcengineResourceId,
       volcengineEndpoint: settings.volcengineEndpoint,
       recentMemoryCount: settings.recentMemoryCount,
@@ -127,7 +144,8 @@ export class LocalSettingsStore {
       keys: {
         deepseek: Boolean(settings.deepseekApiKey),
         openai: Boolean(settings.openaiApiKey),
-        volcengine: Boolean(settings.volcengineApiKey)
+        volcengine: Boolean(settings.volcengineApiKey),
+        volcengineBrain: Boolean(settings.volcengineBrainApiKey)
       },
       cli: {
         claudePath: settings.claudePath,
@@ -146,6 +164,7 @@ export function modelForProvider(settings: LocalSettings, provider: BrainProvide
   if (provider === "openai") return settings.openaiModel;
   if (provider === "claude-cli") return settings.claudeModel;
   if (provider === "codex-cli") return settings.codexModel;
+  if (provider === "volcengine") return settings.volcengineBrainModel;
   return settings.brainModel || "mock";
 }
 

@@ -14,6 +14,7 @@ type OpenAiCompatibleConfig = {
   apiKey: string;
   model: string;
   timeoutMs?: number;
+  endpointPath?: string;
 };
 
 type ChatCompletionResponse = {
@@ -51,7 +52,8 @@ export class OpenAiCompatibleProvider implements CodexProvider {
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs ?? 90000);
 
     try {
-      const response = await fetch(`${this.config.baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
+      const endpointPath = this.config.endpointPath ?? "/v1/chat/completions";
+      const response = await fetch(`${this.config.baseUrl.replace(/\/$/, "")}${endpointPath}`, {
         method: "POST",
         signal: controller.signal,
         headers: {

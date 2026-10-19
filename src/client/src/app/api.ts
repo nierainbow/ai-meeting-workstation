@@ -138,6 +138,9 @@ export function saveSettings(input: Partial<PublicAppSettingsDto> & {
   deepseekApiKey?: string;
   openaiApiKey?: string;
   volcengineApiKey?: string;
+  volcengineBrainApiKey?: string;
+  volcengineBrainBaseUrl?: string;
+  volcengineBrainModel?: string;
 }): Promise<PublicAppSettingsDto> {
   return requestJson<PublicAppSettingsDto>("/api/settings", {
     method: "PUT",

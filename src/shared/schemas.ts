@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const discussionModeSchema = z.enum(["mock", "real"]);
 export const asrProviderSchema = z.enum(["mock", "volcengine", "volcengine-file", "funasr", "type4me", "type4me-live"]);
-export const brainProviderSchema = z.enum(["mock", "codex-cli", "claude-cli", "deepseek", "openai", "local-qwen"]);
+export const brainProviderSchema = z.enum(["mock", "codex-cli", "claude-cli", "deepseek", "openai", "local-qwen", "volcengine"]);
 
 export const createDiscussionSchema = z.object({
   title: z.string().trim().optional(),
@@ -59,7 +59,10 @@ export const settingsUpdateSchema = z.object({
   cloudAcknowledged: z.boolean().optional(),
   deepseekApiKey: z.string().optional(),
   openaiApiKey: z.string().optional(),
-  volcengineApiKey: z.string().optional()
+  volcengineApiKey: z.string().optional(),
+  volcengineBrainApiKey: z.string().optional(),
+  volcengineBrainBaseUrl: z.string().optional(),
+  volcengineBrainModel: z.string().optional()
 });
 
 export const customerProfileSchema = z.object({
