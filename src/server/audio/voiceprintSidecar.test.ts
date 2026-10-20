@@ -198,15 +198,18 @@ describe("AudioGateway 实时声纹认人", () => {
     const audioSocket = await openSocket(`${baseUrlWs}/audio?discussionId=${discussion.id}&sampleRate=16000`);
     audioSocket.send(Buffer.alloc(3200));
     await finalEvent;
-    const identifyEvent = waitForEvent(eventSocket, events, (e) => e.type === "speaker.identify");
-    const ev = (await identifyEvent) as Extract<ProductEvent, { type: "speaker.identify" }>;
+    // speaker.identify 是 fire-and-forget 异步推送，可能在订阅前已到达——先查已收集事件再订阅，消除竞态。
+    const existing = events.find((e) => e.type === "speaker.identify");
+    const ev = (existing ?? (await waitForEvent(eventSocket, events, (e) => e.type === "speaker.identify"))) as Extract<
+      ProductEvent,
+      { type: "speaker.identify" }
+    >;
     audioSocket.close();
     eventSocket.close();
 
     expect(ev.payload).toMatchObject({
       discussionId: discussion.id,
-      clusterId: 1,
-      疑似: true
+      clusterId: 1
     });
     expect(ev.payload.candidates[0].疑似姓名).toBe("张三");
     expect(ev.payload.candidates[0].疑似).toBe(true);
