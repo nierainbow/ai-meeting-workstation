@@ -11,6 +11,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{Manager, RunEvent, WindowEvent};
 
+mod updater;
+
 struct Sidecar {
     child: Mutex<Option<Child>>,
 }
@@ -18,6 +20,7 @@ struct Sidecar {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // tauri 2 的 setup 闭包要求返回 Result<(), Box<dyn Error>>；
             // 这里把 sidecar 启动与窗口加载都包进同一个错误链，失败时壳直接退出并打印原因。
@@ -32,6 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .manage(Sidecar {
             child: Mutex::new(None),
         })
+        .invoke_handler(tauri::generate_handler![updater::updater_check, updater::updater_install])
         .build(tauri::generate_context!())?
         .run(|app_handle, event| match event {
             RunEvent::WindowEvent {
@@ -58,11 +62,38 @@ fn bootstrap(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .get_webview_window("main")
         .ok_or("main window missing")?;
     let port = start_sidecar(app)?;
-    wait_for_server(port)?;
-    let url = format!("http://127.0.0.1:{port}/");
+    if let Err(error) = wait_for_server(port) {
+        // 更新后新包起不来时旧包目录已被替换，必须让用户看到备份位置才有救。
+        let message = format!(
+            "启动失败：{error}\n\n更新前的数据备份在：{}",
+            updater::backups_root_label()
+        );
+        eprintln!("[aimw] {message}");
+        let _ = window.eval(&format!(
+            "document.body.innerHTML = '<pre style=\"font:14px/1.6 -apple-system;padding:24px;white-space:pre-wrap\">{}</pre>'",
+            escape_for_js(&message)
+        ));
+        window.show()?;
+        return Err(error);
+    }
+    // appVersion 只用于「窗口版本 vs 后端版本」比对（/api/config?appVersion=），不做路由；
+    // 更新装好后旧窗口重新加载时两者不一致，界面据此提示重启。
+    let version = app.package_info().version.to_string();
+    let url = format!("http://127.0.0.1:{port}/?appVersion={version}");
     window.eval(&format!("window.location.replace('{url}')"))?;
     window.show()?;
     Ok(())
+}
+
+/// 注入到 WebView 的错误文本做最小转义（只用于本次启动错误展示）。
+fn escape_for_js(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('"', "\\\"")
+        .replace('\r', "")
+        .replace('\n', "\\n")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 /// 启动内嵌的 Node sidecar（server bundle + 精简 prod node_modules）。
@@ -91,6 +122,10 @@ fn start_sidecar(app: &tauri::App) -> Result<u16, Box<dyn std::error::Error>> {
         .env("APP_PORT", default_port().to_string())
         .env("APP_HOST", "127.0.0.1")
         .env("APP_DATA_DIR", app_data_dir(app)?)
+        // 版本号注入 sidecar：/api/health 的 version 必须是这次真正跑起来的版本。
+        .env("APP_VERSION", app.package_info().version.to_string())
+        // 备份位置据此优先落到「被替换的 .app 同级 backups/」，更新失败可直接回滚目录。
+        .env("AIMW_APP_DIR", std::env::current_exe().unwrap_or_default())
         .env("CLIENT_DIST_DIR", resource_dir.join("client"))
         .env("FUNASR_TRANSCRIBE_SCRIPT", resource_dir.join("server/scripts/transcribe_audio.py"))
         .env("FUNASR_HOTWORD_FILE", resource_dir.join("config/hotwords/active.txt"))

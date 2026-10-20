@@ -1,6 +1,6 @@
 {
   "name": "ai-meeting-workstation",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Local-first AI meeting transcription and collaboration workstation",
   "private": true,
   "license": "MIT",

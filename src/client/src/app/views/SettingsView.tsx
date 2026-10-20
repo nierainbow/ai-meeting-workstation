@@ -19,6 +19,7 @@ import { diagnosticItems, fragmentPreview, humanSpeakerLabel, statusText, timeli
 import { addParticipant, removeParticipant, updateParticipant } from "../participantForm";
 import type { TimelineItem } from "../discussionTimeline";
 import { discussionMarkdownExportUrl, discussionPackageExportUrl } from "../api";
+import type { UpdateState } from "../useAppUpdate";
 
 export function SettingsView(props: {
   activeRecentDiscussion?: DiscussionSummaryDto;
@@ -73,6 +74,8 @@ export function SettingsView(props: {
   onSetForm: (form: FormState | ((current: FormState) => FormState)) => void;
   onToggleAudio: () => Promise<void>;
   onUploadAudio: (file: File) => Promise<void>;
+  /** 自动更新状态；浏览器 dev 模式为 undefined，此时整段不渲染。 */
+  update?: UpdateState;
 }) {
   const {
     activeRecentDiscussion,
@@ -449,6 +452,34 @@ export function SettingsView(props: {
           打开模型安装向导
         </button>
       </section>
+
+      {props.update ? (
+        <section className="drawer-section update-section">
+          <h3>自动更新</h3>
+          <p>{props.update.status.text}</p>
+          <div className="update-section-actions">
+            <button
+              type="button"
+              className="quiet-button"
+              disabled={!props.update.status.canCheck}
+              onClick={() => props.update?.checkNow()}
+            >
+              {props.update.checking ? "检查中…" : "检查更新"}
+            </button>
+            {props.update.status.canInstall ? (
+              <button
+                type="button"
+                className="quiet-button"
+                disabled={!props.update.status.canInstall}
+                onClick={() => props.update?.install()}
+              >
+                立即更新
+              </button>
+            ) : null}
+          </div>
+          <p className="cloud-notice">更新前会自动把 .local-data/ 备份到同级 backups/ 目录；更新包需通过签名校验才会安装。</p>
+        </section>
+      ) : null}
 
       {discussion ? (
         <section className="drawer-section">

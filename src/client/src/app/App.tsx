@@ -55,6 +55,9 @@ import { LiveMeetingView } from "./views/LiveMeetingView";
 import { SettingsView } from "./views/SettingsView";
 import { ModelSetupWizard } from "./views/ModelSetupWizard";
 import { DemoView } from "./views/DemoView";
+import { UpdateBanner } from "./UpdateBanner";
+import { useAppUpdate } from "./useAppUpdate";
+import { isDesktopShell } from "./updater";
 
 export { speakerLetter } from "./speaker";
 
@@ -96,6 +99,9 @@ export function App() {
   const [isModelWizardOpen, setIsModelWizardOpen] = useState(false);
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTierId | null>(null);
   const [isModelActionBusy, setIsModelActionBusy] = useState(false);
+  const updateState = useAppUpdate();
+  // 浏览器 dev 模式（无桌面壳）下不展示「自动更新」这一段；桌面壳内才有意义。
+  const desktopUpdate = isDesktopShell() ? updateState : undefined;
   const hasSentAudioRef = useRef(false);
   const primaryFunasrInputRef = useRef<HTMLInputElement | null>(null);
   const audioUploadFlightRef = useRef(new SingleFlight());
@@ -932,7 +938,11 @@ export function App() {
   }
 
   return (
-    <main className={`one-line-workspace phase-${phase}${isDemoMode ? " demo-mode" : ""}`}>
+    <main
+      className={`one-line-workspace phase-${phase}${isDemoMode ? " demo-mode" : ""}${
+        updateState.hasBanner ? " workspace-has-update" : ""
+      }`}
+    >
       <header className="workspace-chrome">
         <button type="button" className="brand-signal" disabled={isFallbackLoading} onClick={handleNewDiscussion} aria-label="回到新会议">
           <span className="brand-orbit" aria-hidden="true">
@@ -973,6 +983,8 @@ export function App() {
           </button>
         </div>
       </header>
+
+      <UpdateBanner state={updateState} />
 
       {isDemoMode ? (
         <section className="demo-boundary-banner" role="status">
@@ -1138,6 +1150,7 @@ export function App() {
         onSetForm={setForm}
         onToggleAudio={toggleAudioCapture}
         onUploadAudio={handleUploadAudio}
+        update={desktopUpdate}
       />
     </main>
   );

@@ -60,3 +60,8 @@ CLAUDE.md
 # Tauri 桌面壳：构建产物与内嵌 sidecar（含 Node 运行时，约 148MB）不入库
 src-tauri/target/
 src-tauri/sidecar/
+
+# 更新签名私钥：只能放在仓库外（默认 ~/.config/aimw/updater/），这里再兜一道，
+# 防止有人图省事把密钥放进 config/updater/ 后被 git add -A 带进仓库。
+*.key
+!*.key.pub

@@ -23,6 +23,15 @@ export type AppConfigDto = {
   asrConfigured: boolean;
   codexProvider: "mock" | "cli";
   settings: PublicAppSettingsDto;
+  /**
+   * 更新通道的版本对照（旧 server 可能没有这一段，因此可选）：
+   * runningVersion 是后端进程真正跑的版本，clientVersion 是地址栏里记下的版本。
+   * 两者不一致 = 新包已装好但窗口还是旧页面，界面必须提示重启。
+   */
+  update?: {
+    runningVersion: string | null;
+    clientVersion: string | null;
+  };
 };
 
 type CreateDiscussionInput = {
@@ -39,7 +48,10 @@ type CreateDiscussionInput = {
 };
 
 export function getAppConfig(): Promise<AppConfigDto> {
-  return requestJson<AppConfigDto>("/api/config");
+  // appVersion 由 Tauri 壳注入地址栏（main.rs），浏览器直连时没有这个参数。
+  const clientVersion = new URLSearchParams(window.location.search).get("appVersion");
+  const query = clientVersion ? "?appVersion=" + encodeURIComponent(clientVersion) : "";
+  return requestJson<AppConfigDto>("/api/config" + query);
 }
 
 function scopedApiPath(scope: WorkspaceDataScope, path: string): string {

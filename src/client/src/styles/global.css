@@ -21,6 +21,131 @@
   --danger: #b94a48;
 }
 
+/* ---------------------------------------------------------------- */
+/* 自动更新横幅（T1.3）                                              */
+/*                                                                  */
+/* 横幅紧跟 .workspace-chrome（site-chrome 高约 94px）之下，不占文档流，  */
+/* 所以不会挤动首页/转写页的布局；有横幅时各视图顶部留白再多 52px。      */
+/* ---------------------------------------------------------------- */
+.workspace-has-update .workspace-canvas {
+  padding-top: 178px;
+}
+
+.workspace-has-update .task-home,
+.workspace-has-update .file-workspace {
+  padding-top: 190px;
+}
+
+.workspace-has-update .demo-boundary-banner {
+  top: 129px;
+}
+
+.workspace-has-update.demo-mode .workspace-canvas {
+  padding-top: 198px;
+}
+
+.update-banner {
+  position: fixed;
+  top: 94px;
+  right: 0;
+  left: 0;
+  z-index: 19;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  border-bottom: 1px solid rgba(33, 185, 177, 0.28);
+  color: #12433f;
+  background: var(--handoff-soft);
+  box-shadow: 0 10px 24px rgba(18, 67, 63, 0.08);
+  font-size: 12px;
+}
+
+.update-banner-text {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.update-banner-text strong {
+  font-size: 13px;
+}
+
+.update-banner-error {
+  color: var(--danger);
+}
+
+.update-banner-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.update-banner-actions button {
+  min-height: 30px;
+  border: 1px solid rgba(18, 67, 63, 0.22);
+  border-radius: 8px;
+  padding: 5px 12px;
+  color: #12433f;
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+}
+
+.update-banner-install {
+  border-color: rgba(106, 143, 6, 0.4);
+  background: var(--live);
+  font-weight: 600;
+}
+
+.update-banner-done {
+  border-bottom-color: rgba(106, 143, 6, 0.32);
+  color: #2f4500;
+  background: #f3fbe0;
+}
+
+.update-section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .update-banner {
+    top: 62px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-height: 48px;
+    padding: 7px 14px;
+    font-size: 10px;
+  }
+
+  .update-banner-text {
+    justify-content: flex-start;
+  }
+
+  .workspace-has-update .workspace-canvas {
+    padding-top: 168px;
+  }
+
+  .workspace-has-update .task-home,
+  .workspace-has-update .file-workspace {
+    padding-top: 180px;
+  }
+
+  .workspace-has-update .demo-boundary-banner {
+    top: 110px;
+  }
+
+  .workspace-has-update.demo-mode .workspace-canvas {
+    padding-top: 188px;
+  }
+}
+
 /* Demo mode is deliberately loud and visually distinct so it cannot be
    mistaken for the normal workspace during a customer presentation. */
 .one-line-workspace.demo-mode {
