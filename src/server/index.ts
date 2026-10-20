@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { customerProfileSchema, settingsUpdateSchema } from "../shared/schemas";
 import { AudioGateway } from "./audio/audioGateway";
 import { VoiceprintSidecarClient } from "./audio/voiceprintSidecar";
+import { ensureVoiceprintGallery } from "./voiceprint/galleryBootstrap";
 import { FunasrFileTranscriber } from "./asr/funasrFile";
 import { MockAsrService } from "./asr/mockAsr";
 import { VolcengineAsrProvider } from "./asr/volcengineAsr";
@@ -108,6 +109,13 @@ const getVolcengineFileTranscriber = (targetRepository = repository, targetStora
 const voiceprintSidecar = config.voiceprintSidecarUrl
   ? new VoiceprintSidecarClient(config.voiceprintSidecarUrl)
   : undefined;
+
+// 声纹主库自举（T2.5）：sidecar 启用时，若用户数据目录缺主库则从 meeting-agent 校验拷贝。
+if (voiceprintSidecar) {
+  const gallery = ensureVoiceprintGallery(config.dataDir);
+  if (gallery.status === "copied") logger.info("voiceprint gallery bootstrapped", { from: gallery.from });
+  else if (gallery.status !== "present") logger.warn("voiceprint gallery unavailable", { status: gallery.status });
+}
 
 const audioGateway = new AudioGateway({
   repository,

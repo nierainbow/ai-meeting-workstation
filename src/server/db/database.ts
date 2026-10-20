@@ -109,6 +109,17 @@ function migrate(db: DatabaseInstance): void {
     db.exec("ALTER TABLE discussions ADD COLUMN brain_model TEXT");
   }
 
+  const utteranceColumns = db.prepare("PRAGMA table_info(utterances)").all() as Array<{ name: string }>;
+  if (!utteranceColumns.some((column) => column.name === "cluster_id")) {
+    db.exec("ALTER TABLE utterances ADD COLUMN cluster_id TEXT");
+  }
+  if (!utteranceColumns.some((column) => column.name === "identify_status")) {
+    db.exec("ALTER TABLE utterances ADD COLUMN identify_status TEXT");
+  }
+  if (!utteranceColumns.some((column) => column.name === "confirmed_by")) {
+    db.exec("ALTER TABLE utterances ADD COLUMN confirmed_by TEXT");
+  }
+
   const aiTurnColumns = db.prepare("PRAGMA table_info(ai_turns)").all() as Array<{ name: string }>;
   if (!aiTurnColumns.some((column) => column.name === "ai_turn_type")) {
     db.exec("ALTER TABLE ai_turns ADD COLUMN ai_turn_type TEXT NOT NULL DEFAULT 'next_step'");
