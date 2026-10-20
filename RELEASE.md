@@ -31,6 +31,7 @@
 ## 2. 版本变更与 CHANGELOG
 
 - `CHANGELOG.md` 由 `scripts/generate-changelog.mjs` 从 git log 的 conventional commit 生成，**不要手改**（手改会在下次生成时被替换掉）。
+- 注意：**打完 tag 后不要跑裸 `npm run changelog`**——默认范围会变成 `<当前版本 tag>..HEAD`（空），生成器已内置拦截（拒绝写空小节并退出 1）。要补生成必须显式给 `--from/--to/--version`。
 - 生成命令：
 
   ```bash
