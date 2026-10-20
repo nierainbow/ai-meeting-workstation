@@ -1,4 +1,4 @@
-import type { AiTurnDto, AudioAssetDto, DiscussionDto, SpeakerBindingDto, UtteranceDto } from "./types";
+import type { AiTurnDto, AudioAssetDto, DiscussionDto, SpeakerBindingDto, SpeakerIdentifyPayload, UtteranceDto } from "./types";
 
 export type AsrStatus = "idle" | "connecting" | "connected" | "receiving" | "failed" | "closed";
 export type CodexStatus = "idle" | "starting" | "ready" | "responding" | "failed";
@@ -16,4 +16,5 @@ export type ProductEvent =
   | { type: "asr.status"; status: AsrStatus }
   | { type: "asr.error"; code: AsrErrorCode; message: string; retryable: boolean }
   | { type: "audio.asset.saved"; asset: AudioAssetDto }
-  | { type: "codex.status"; status: CodexStatus };
+  | { type: "codex.status"; status: CodexStatus }
+  | { type: "speaker.identify"; payload: SpeakerIdentifyPayload };

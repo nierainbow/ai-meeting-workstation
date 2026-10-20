@@ -42,6 +42,8 @@ export type ServerConfig = {
     /** 单个文件下载超时（毫秒）。 */
     fileTimeoutMs: number;
   };
+  /** 声纹 sidecar（FastAPI，默认 8792）基址；为空表示不启用实时声纹认人。 */
+  voiceprintSidecarUrl?: string;
 };
 
 export function resolveFunasrRuntime(
@@ -82,6 +84,8 @@ export function loadServerConfig(
     throw new Error("CODEX_PROVIDER=cli 时必须配置 CODEX_CLI_PATH，请检查 .env。");
   }
 
+  const voiceprintSidecarUrl = env.VOICEPRINT_SIDECAR_URL?.trim();
+
   return {
     host: env.APP_HOST ?? "127.0.0.1",
     port,
@@ -119,7 +123,8 @@ export function loadServerConfig(
         env.MODEL_DOWNLOAD_FILE_TIMEOUT_MS ?? "1800000",
         "MODEL_DOWNLOAD_FILE_TIMEOUT_MS"
       )
-    }
+    },
+    voiceprintSidecarUrl: voiceprintSidecarUrl || undefined
   };
 }
 

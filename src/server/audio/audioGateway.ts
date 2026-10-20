@@ -6,7 +6,8 @@ import type { DiscussionRepository } from "../discussions/repository";
 import type { StoragePaths } from "../storage/paths";
 import type { EventHub } from "../ws/eventHub";
 import { WavWriter } from "./wavWriter";
-import type { UtteranceDto } from "../../shared/types";
+import type { UtteranceDto, SpeakerIdentifyPayload, SpeakerCandidate } from "../../shared/types";
+import type { VoiceprintSidecar } from "./voiceprintSidecar";
 import { AsrEventLogger, type AsrEventLogEntry } from "../asr/asrEventLog";
 import type { AsrProvider } from "../asr/asrProvider";
 
@@ -18,6 +19,8 @@ export class AudioGateway {
       storagePaths: StoragePaths;
       socketPath?: string;
       getAsrProvider: (discussion: NonNullable<ReturnType<DiscussionRepository["getDiscussion"]>>) => AsrProvider | undefined;
+      /** 可选；声纹 sidecar 客户端。未注入时静默跳过实时认人（优雅降级）。 */
+      voiceprintSidecar?: VoiceprintSidecar;
     }
   ) {}
 
@@ -141,6 +144,8 @@ export class AudioGateway {
               });
               this.deps.eventHub.publish(discussionId, { type: "asr.status", status: "receiving" });
               this.deps.eventHub.publish(discussionId, { type: "transcript.final", utterance: saved });
+              // 异步送声纹 sidecar（fire-and-forget，绝不阻塞回显 / 转写链路）。
+              void this.runVoiceprintIdentify(discussionId, wavPath, saved, utterance.speakerLabel);
             },
             onError: (message) => {
               appendLog({
@@ -233,6 +238,54 @@ export class AudioGateway {
         this.deps.eventHub.publish(discussionId, { type: "asr.status", status: "closed" });
       });
     });
+  }
+
+  /**
+   * 实时链路异步认人：把这条 final utterance 连同完整 wav 送给 sidecar。
+   * 全部异常被吞掉，sidecar 挂掉 / 超时 / 非 2xx 一律不进入转写主链路。
+   */
+  private async runVoiceprintIdentify(
+    discussionId: string,
+    wavPath: string,
+    utterance: UtteranceDto,
+    speakerLabel: string
+  ): Promise<void> {
+    const sidecar = this.deps.voiceprintSidecar;
+    if (!sidecar || !wavPath) return;
+    try {
+      const result = await sidecar.identifyLive(discussionId, wavPath, {
+        id: utterance.id,
+        startMs: utterance.startMs,
+        endMs: utterance.endMs,
+        label: speakerLabel
+      });
+      if (!result) return;
+      // 找到包含本次 utterance 的簇（疑似命中才推事件；UI 据此渲染「疑似：姓名？」）。
+      const cluster = result.clusters.find((c) => c.utterances.includes(utterance.id));
+      const candidates: SpeakerCandidate[] = cluster
+        ? [
+            {
+              疑似姓名: cluster.疑似姓名,
+              score: cluster.score,
+              gap: cluster.gap,
+              疑似: cluster.疑似,
+              reason: cluster.reason
+            }
+          ]
+        : [];
+      if (candidates.length === 0) return;
+      const payload: SpeakerIdentifyPayload = {
+        discussionId,
+        utteranceId: utterance.id,
+        speakerLabel,
+        clusterId: cluster!.clusterId,
+        durationSec: cluster!.durationSec,
+        candidates
+      };
+      this.deps.eventHub.publish(discussionId, { type: "speaker.identify", payload });
+    } catch {
+      // 任何异常都不外泄：转写链路与回显不受影响。
+    }
   }
 }
 

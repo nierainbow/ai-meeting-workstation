@@ -153,6 +153,31 @@ export type AiTurnDto = {
   feedbackCreatedAt?: string;
 };
 
+/**
+ * 声纹 sidecar 异步认人结果事件荷载（T2.3）。
+ * 前端据此渲染「疑似：姓名？」角标——自动认人只给疑似，绝不当事实定名。
+ */
+export type SpeakerCandidate = {
+  /** 疑似姓名（双条件 score>=0.65 且 gap>=0.05 才给出，否则 null）。 */
+  疑似姓名: string | null;
+  score: number;
+  gap: number;
+  /** 是否达到「疑似」自动命名门槛（UI 角标据此渲染）。 */
+  疑似: boolean;
+  reason: string;
+};
+
+export type SpeakerIdentifyPayload = {
+  discussionId: string;
+  utteranceId: string;
+  speakerLabel: string;
+  clusterId: number;
+  /** 该 utterance 所属片段的时长（秒）。 */
+  durationSec: number;
+  /** 本次识别的疑似候选（可能为空数组=未命中任何簇）。 */
+  candidates: SpeakerCandidate[];
+};
+
 export type AudioAssetDto = {
   id: string;
   discussionId: string;
