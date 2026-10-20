@@ -9,6 +9,8 @@ export type FunasrUploadResult = {
   transcript: string;
   utteranceCount: number;
   transcriptPath: string;
+  /** 落盘的音频绝对路径，文件转写后送声纹 sidecar 时复用（避免重复解码）。 */
+  audioPath: string;
 };
 
 type FunasrFileTranscriberConfig = {
@@ -99,7 +101,8 @@ export class FunasrFileTranscriber {
     return {
       transcript,
       utteranceCount,
-      transcriptPath
+      transcriptPath,
+      audioPath
     };
   }
 

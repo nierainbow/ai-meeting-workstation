@@ -40,6 +40,8 @@ export type VolcengineFileUploadResult = {
   transcript: string;
   utteranceCount: number;
   transcriptPath: string;
+  /** 落盘的音频绝对路径，文件转写后送声纹 sidecar 时复用（避免重复解码）。 */
+  audioPath: string;
 };
 
 export class VolcengineFileTranscriber {
@@ -133,7 +135,7 @@ export class VolcengineFileTranscriber {
       source: "browser"
     });
 
-    return { transcript, utteranceCount, transcriptPath };
+    return { transcript, utteranceCount, transcriptPath, audioPath };
   }
 
   private async pollResult(headers: Record<string, string>): Promise<VolcengineFileResponse> {

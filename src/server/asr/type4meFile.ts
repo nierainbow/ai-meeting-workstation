@@ -12,6 +12,8 @@ export type Type4meUploadResult = {
   transcript: string;
   utteranceCount: number;
   transcriptPath: string;
+  /** 落盘的音频绝对路径，文件转写后送声纹 sidecar 时复用（避免重复解码）。 */
+  audioPath: string;
 };
 
 export type Type4meFileTranscriberConfig = {
@@ -114,7 +116,7 @@ export class Type4MeFileTranscriber {
         source: "browser"
       });
 
-      return { transcript, utteranceCount, transcriptPath };
+      return { transcript, utteranceCount, transcriptPath, audioPath };
     } finally {
       /* 临时解码文件在 runAfconvert 内自行清理；ffmpeg 直接输出到内存管道 */
     }

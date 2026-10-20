@@ -297,6 +297,27 @@ export class DiscussionRepository {
     return utterance;
   }
 
+  /**
+   * 把某条 utterance 的说话人标签升级（T2.2 声纹融合：speaker_0 → 姓名/待确认#n）。
+   * 只改 speaker_label，不碰其它字段；目标行不存在时静默跳过。
+   */
+  async updateUtteranceSpeaker(
+    discussionId: string,
+    utteranceId: string,
+    speakerLabel: string
+  ): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE utterances SET speaker_label = ? WHERE id = ? AND discussion_id = ?`
+      )
+      .run(speakerLabel, utteranceId, discussionId);
+  }
+
+  /** 返回某场讨论的全部 utterance（按创建时间升序），供 T2.2 声纹批量识别取时间戳。 */
+  getUtterances(discussionId: string): UtteranceDto[] {
+    return this.listUtterances(discussionId);
+  }
+
   createCompletedAiTurn(input: RespondedAiTurnInput): AiTurnDto {
     return this.createRespondedAiTurn(input, "completed");
   }

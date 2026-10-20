@@ -21,6 +21,61 @@ import type { StoragePaths } from "../storage/paths";
 import type { EventHub } from "../ws/eventHub";
 import { createDiscussionPackage, discussionExportFileStem, renderDiscussionMarkdown } from "./exporters";
 import type { DiscussionRepository } from "./repository";
+import type { VoiceprintSidecar, VoiceprintFileUtterance } from "../audio/voiceprintSidecar";
+
+/**
+ * T2.2 文件转写链路声纹接入的落库逻辑。
+ *
+ * 把整场带时间戳的 utterance 批量送 sidecar /identify，依据返回把每条 utterance 的
+ * speaker_label 升级为「疑似姓名」或「待确认 #n」并写回 DB。
+ *
+ * 刚性约束（产品化规划第七节）：
+ * - 绝不做事实定名：疑似通过也只标「疑似姓名」语义，UI 负责按 疑似 渲染角标；
+ * - 时间戳缺失（如 type4me 逐行无时间）或 sidecar 不可用时整段跳过，不影响转写；
+ * - 任何异常都吞掉，保证文件转写链路不降级。
+ */
+async function applyVoiceprintIdentify(input: {
+  repository: DiscussionRepository;
+  voiceprintSidecar?: VoiceprintSidecar;
+  discussionId: string;
+  audioPath?: string;
+}): Promise<void> {
+  if (!input.voiceprintSidecar || !input.audioPath) return;
+
+  const utterances = input.repository.getUtterances(input.discussionId);
+  const candidates: VoiceprintFileUtterance[] = utterances
+    .filter((utterance) => typeof utterance.startMs === "number" && typeof utterance.endMs === "number")
+    .map((utterance) => ({
+      id: utterance.id,
+      startMs: utterance.startMs,
+      endMs: utterance.endMs,
+      label: utterance.speakerLabel
+    }));
+  if (candidates.length === 0) return;
+
+  let result: Awaited<ReturnType<VoiceprintSidecar["identifyFile"]>> = null;
+  try {
+    result = await input.voiceprintSidecar.identifyFile(input.discussionId, input.audioPath, candidates);
+  } catch {
+    return;
+  }
+  if (!result) return;
+
+  const speakerByUtterance = new Map<string, { label: string }>();
+  for (const cluster of [...result.clusters, ...result.pending]) {
+    const label = cluster.疑似 && cluster.疑似姓名 ? cluster.疑似姓名 : `待确认 #${cluster.clusterId}`;
+    for (const utteranceId of cluster.utterances) {
+      speakerByUtterance.set(utteranceId, { label });
+    }
+  }
+
+  for (const utterance of utterances) {
+    const hit = speakerByUtterance.get(utterance.id);
+    if (!hit) continue;
+    await input.repository.updateUtteranceSpeaker(input.discussionId, utterance.id, hit.label);
+  }
+}
+
 
 export function createDiscussionRouter(deps: {
   repository: DiscussionRepository;
@@ -33,6 +88,8 @@ export function createDiscussionRouter(deps: {
   type4meFileTranscriber: Type4MeFileTranscriber;
   eventHub: EventHub;
   storagePaths: StoragePaths;
+  /** 声纹 sidecar 客户端；为空表示不启用文件链路声纹认人（不阻塞转写）。 */
+  voiceprintSidecar?: VoiceprintSidecar;
 }): Router {
   const router = Router();
 
@@ -135,6 +192,17 @@ export function createDiscussionRouter(deps: {
         filename,
         audio: request.body
       });
+
+      // T2.2 文件转写链路接入声纹：转写完成后把整场带时间戳的 utterance 一次性送
+      // sidecar 做聚类 + 主库匹配，再把说话人升级为「疑似姓名」或「待确认 #n」。
+      // sidecar 不可用 / 无音频路径 / 无时间戳时静默跳过（绝不阻塞转写回显）。
+      await applyVoiceprintIdentify({
+        repository: deps.repository,
+        voiceprintSidecar: deps.voiceprintSidecar,
+        discussionId: discussion.id,
+        audioPath: "audioPath" in result ? (result as { audioPath: string }).audioPath : undefined
+      });
+
       const updated = deps.repository.getDiscussionOrThrow(discussion.id);
       deps.eventHub.publish(discussion.id, { type: "discussion.updated", discussion: updated });
       response.status(201).json({ ...result, discussion: updated });
