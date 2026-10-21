@@ -177,6 +177,8 @@ describe("AudioGateway 实时声纹认人", () => {
   afterEach(async () => {
     await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
     db.close();
+    // 异步 fire-and-forget 的识别/日志可能仍在飞行，等一拍再拆临时目录，避免 teardown 竞态报 ENOENT。
+    await new Promise((resolve) => setTimeout(resolve, 100));
     rmSync(tempDir, { recursive: true, force: true });
   });
 
