@@ -7,6 +7,7 @@ import { customerProfileSchema, settingsUpdateSchema } from "../shared/schemas";
 import { AudioGateway } from "./audio/audioGateway";
 import { VoiceprintSidecarClient } from "./audio/voiceprintSidecar";
 import { ensureVoiceprintGallery } from "./voiceprint/galleryBootstrap";
+import { createVoiceprintRouter } from "./voiceprint/routes";
 import { FunasrFileTranscriber } from "./asr/funasrFile";
 import { MockAsrService } from "./asr/mockAsr";
 import { VolcengineAsrProvider } from "./asr/volcengineAsr";
@@ -345,6 +346,12 @@ app.use(
     storagePaths,
     voiceprintSidecar
   })
+);
+
+// T2.4 声纹：待确认面板 + 声纹库管理（sidecar 未启用时内部返回 503）。
+app.use(
+  "/api/voiceprint",
+  createVoiceprintRouter({ repository, eventHub, voiceprintSidecar })
 );
 
 app.use(

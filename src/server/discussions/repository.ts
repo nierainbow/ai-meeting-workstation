@@ -61,6 +61,9 @@ type UtteranceRow = {
   is_final: 0 | 1;
   source: UtteranceSource;
   created_at: string;
+  cluster_id: string | null;
+  identify_status: string | null;
+  confirmed_by: string | null;
 };
 
 type AiTurnRow = {
@@ -311,6 +314,50 @@ export class DiscussionRepository {
         `UPDATE utterances SET speaker_label = ? WHERE id = ? AND discussion_id = ?`
       )
       .run(speakerLabel, utteranceId, discussionId);
+  }
+
+  /** T2.5：识别写回 speaker_label 的同时落 cluster_id 与 identify_status。 */
+  async updateUtteranceIdentification(
+    discussionId: string,
+    utteranceId: string,
+    input: { speakerLabel: string; clusterId: string; identifyStatus: string }
+  ): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE utterances SET speaker_label = ?, cluster_id = ?, identify_status = ? WHERE id = ? AND discussion_id = ?`
+      )
+      .run(input.speakerLabel, input.clusterId, input.identifyStatus, utteranceId, discussionId);
+  }
+
+  /** T2.4：待确认面板数据源——按 identify_status 过滤某场讨论的 utterance。 */
+  listUtterancesByIdentifyStatus(discussionId: string, statuses: string[]): UtteranceDto[] {
+    if (statuses.length === 0) return [];
+    const placeholders = statuses.map(() => "?").join(", ");
+    const rows = this.db
+      .prepare(`SELECT * FROM utterances WHERE discussion_id = ? AND identify_status IN (${placeholders}) ORDER BY created_at ASC`)
+      .all(discussionId, ...statuses) as UtteranceRow[];
+    return rows.map(mapUtterance);
+  }
+
+  /** T2.4：整簇确认——该簇全部 utterance 定名为 confirmedName；name 为 null 表示跳过（rejected）。 */
+  confirmClusterIdentification(
+    discussionId: string,
+    clusterId: string,
+    name: string | null,
+    confirmedBy: string
+  ): number {
+    if (name) {
+      return this.db
+        .prepare(
+          `UPDATE utterances SET speaker_label = ?, identify_status = 'confirmed', confirmed_by = ? WHERE discussion_id = ? AND cluster_id = ?`
+        )
+        .run(name, confirmedBy, discussionId, clusterId).changes;
+    }
+    return this.db
+      .prepare(
+        `UPDATE utterances SET identify_status = 'rejected', confirmed_by = ? WHERE discussion_id = ? AND cluster_id = ?`
+      )
+      .run(confirmedBy, discussionId, clusterId).changes;
   }
 
   /** 返回某场讨论的全部 utterance（按创建时间升序），供 T2.2 声纹批量识别取时间戳。 */
@@ -616,7 +663,10 @@ function mapUtterance(row: UtteranceRow): UtteranceDto {
     endMs: row.end_ms ?? undefined,
     isFinal: row.is_final === 1,
     source: row.source,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    clusterId: row.cluster_id ?? undefined,
+    identifyStatus: row.identify_status ?? undefined,
+    confirmedBy: row.confirmed_by ?? undefined
   };
 }
 

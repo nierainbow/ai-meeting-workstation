@@ -57,6 +57,14 @@ export interface VoiceprintSidecar {
     utterance: VoiceprintLiveUtterance
   ): Promise<VoiceprintIdentifyResult | null>;
   health(): Promise<boolean>;
+  /** T2.4：人工确认某簇（name=null 表示跳过/拒绝）。 */
+  confirm?(meetingId: string, clusterId: number, name: string | null): Promise<boolean>;
+  /** T2.4：声纹库列表（GET /gallery），sidecar 不可用时返回 null。 */
+  galleryList?(): Promise<unknown | null>;
+  /** T2.4：声纹库操作 rename|merge|delete（POST /gallery）。 */
+  galleryAction?(action: Record<string, unknown>): Promise<unknown | null>;
+  /** T2.4：会议收尾产出贡献包（POST /finalize）。 */
+  finalize?(meetingId: string, options?: { contributor?: string; meetingTitle?: string }): Promise<unknown | null>;
 }
 
 export class VoiceprintSidecarClient implements VoiceprintSidecar {
@@ -147,6 +155,55 @@ export class VoiceprintSidecarClient implements VoiceprintSidecar {
       });
       if (!response.ok) return null;
       return (await response.json()) as VoiceprintIdentifyResult;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async confirm(meetingId: string, clusterId: number, name: string | null): Promise<boolean> {
+    const result = await this.post("/confirm", { meetingId, clusterId, name });
+    return result !== null;
+  }
+
+  async galleryList(): Promise<unknown | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(`${this.baseUrl}/gallery`, { signal: controller.signal });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async galleryAction(action: Record<string, unknown>): Promise<unknown | null> {
+    return this.post("/gallery", action);
+  }
+
+  async finalize(
+    meetingId: string,
+    options?: { contributor?: string; meetingTitle?: string }
+  ): Promise<unknown | null> {
+    return this.post("/finalize", { meetingId, contributor: options?.contributor ?? "local", meetingTitle: options?.meetingTitle });
+  }
+
+  private async post(path: string, body: unknown): Promise<unknown | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) return null;
+      return await response.json().catch(() => ({}));
     } catch {
       return null;
     } finally {

@@ -61,18 +61,32 @@ async function applyVoiceprintIdentify(input: {
   }
   if (!result) return;
 
-  const speakerByUtterance = new Map<string, { label: string }>();
+  const speakerByUtterance = new Map<string, { label: string; clusterId: string; identifyStatus: string }>();
   for (const cluster of [...result.clusters, ...result.pending]) {
-    const label = cluster.疑似 && cluster.疑似姓名 ? cluster.疑似姓名 : `待确认 #${cluster.clusterId}`;
+    const suspected = cluster.疑似 && cluster.疑似姓名;
+    const label = suspected ? cluster.疑似姓名! : `待确认 #${cluster.clusterId}`;
     for (const utteranceId of cluster.utterances) {
-      speakerByUtterance.set(utteranceId, { label });
+      speakerByUtterance.set(utteranceId, {
+        label,
+        clusterId: String(cluster.clusterId),
+        identifyStatus: suspected ? "suspected" : "pending"
+      });
     }
   }
 
   for (const utterance of utterances) {
     const hit = speakerByUtterance.get(utterance.id);
     if (!hit) continue;
-    await input.repository.updateUtteranceSpeaker(input.discussionId, utterance.id, hit.label);
+    // T2.4/T2.5：speaker_label 之外同时落 cluster_id 与 identify_status，供待确认面板与确认回写。
+    if (typeof input.repository.updateUtteranceIdentification === "function") {
+      await input.repository.updateUtteranceIdentification(input.discussionId, utterance.id, {
+        speakerLabel: hit.label,
+        clusterId: hit.clusterId,
+        identifyStatus: hit.identifyStatus
+      });
+    } else {
+      await input.repository.updateUtteranceSpeaker(input.discussionId, utterance.id, hit.label);
+    }
   }
 }
 

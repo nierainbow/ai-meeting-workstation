@@ -134,6 +134,12 @@ export type UtteranceDto = {
   isFinal: boolean;
   source: UtteranceSource;
   createdAt: string;
+  /** 声纹聚类簇号（T2.5）；未参与声纹识别则为空。 */
+  clusterId?: string;
+  /** 声纹确认状态：suspected=疑似待确认 / pending=待确认 / confirmed=已确认 / rejected=已跳过。 */
+  identifyStatus?: string;
+  /** 确认操作者（confirmed 时记录）。 */
+  confirmedBy?: string;
 };
 
 export type AiTurnDto = {
