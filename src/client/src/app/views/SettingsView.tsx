@@ -20,6 +20,7 @@ import { addParticipant, removeParticipant, updateParticipant } from "../partici
 import type { TimelineItem } from "../discussionTimeline";
 import { discussionMarkdownExportUrl, discussionPackageExportUrl } from "../api";
 import type { UpdateState } from "../useAppUpdate";
+import { VoiceprintGallerySection } from "../VoiceprintGallerySection";
 
 export function SettingsView(props: {
   activeRecentDiscussion?: DiscussionSummaryDto;
@@ -623,6 +624,7 @@ export function SettingsView(props: {
           </button>
         </section>
       ) : null}
+      <VoiceprintGallerySection />
     </aside>
   </div>
 );

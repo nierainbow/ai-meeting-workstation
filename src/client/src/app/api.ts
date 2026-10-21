@@ -320,3 +320,44 @@ export function cancelModelDownload(): Promise<ModelSetupStatusDto> {
 export function skipModelSetup(): Promise<ModelSetupStatusDto> {
   return requestJson<ModelSetupStatusDto>("/api/models/skip", { method: "POST" });
 }
+
+// ── T2.4 声纹：待确认面板 + 声纹库管理 ──
+export type VoiceprintPendingCluster = {
+  clusterId: string;
+  currentLabel: string;
+  identifyStatus: string;
+  utteranceCount: number;
+  samples: { id: string; text: string; startMs?: number; endMs?: number }[];
+};
+
+export type VoiceprintGalleryEntry = {
+  name: string;
+  samples?: number;
+  [key: string]: unknown;
+};
+
+export function listVoiceprintPending(discussionId: string): Promise<{ clusters: VoiceprintPendingCluster[] }> {
+  return requestJson<{ clusters: VoiceprintPendingCluster[] }>(
+    `/api/voiceprint/pending?discussionId=${encodeURIComponent(discussionId)}`
+  );
+}
+
+export function confirmVoiceprintCluster(input: {
+  discussionId: string;
+  clusterId: number;
+  name?: string | null;
+}): Promise<{ ok: boolean; updated: number; status: string }> {
+  return requestJson("/api/voiceprint/confirm", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function getVoiceprintGallery(): Promise<{ voices?: VoiceprintGalleryEntry[] } & Record<string, unknown>> {
+  return requestJson("/api/voiceprint/gallery");
+}
+
+export function voiceprintGalleryAction(action: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestJson("/api/voiceprint/gallery", { method: "POST", body: JSON.stringify(action) });
+}
+
+export function finalizeVoiceprintMeeting(input: { meetingId: string; meetingTitle?: string }): Promise<Record<string, unknown>> {
+  return requestJson("/api/voiceprint/finalize", { method: "POST", body: JSON.stringify(input) });
+}

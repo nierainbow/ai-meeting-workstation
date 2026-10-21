@@ -3519,3 +3519,16 @@ body {
     font-size: 21px;
   }
 }
+
+/* T2.4 声纹待确认面板 + 声纹库 */
+.voiceprint-confirm-panel { margin: 12px 0; padding: 12px; border: 1px solid var(--border-color, #d0d7de); border-radius: 8px; background: var(--bg-subtle, #f6f8fa); }
+.voiceprint-confirm-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.voiceprint-cluster { border-top: 1px solid var(--border-color, #d0d7de); padding: 8px 0; }
+.voiceprint-cluster-head { display: flex; gap: 8px; align-items: center; }
+.tag-suspected { background: #fff3cd; color: #7a5b00; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+.tag-pending { background: #e2e3e6; color: #444; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+.voiceprint-count { color: #888; font-size: 12px; }
+.voiceprint-samples { margin: 6px 0; padding-left: 18px; color: #555; font-size: 13px; }
+.voiceprint-actions { display: flex; gap: 8px; align-items: center; }
+.voiceprint-actions input { flex: 1; max-width: 220px; padding: 4px 8px; }
+.voiceprint-voice { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border-color, #e2e3e6); }

@@ -7,6 +7,7 @@ import { humanSpeakerLabel, phaseLabel } from "../format";
 import { mainErrorText } from "../errorPresentation";
 import { aiTurnSystemNotice } from "../errorPresentation";
 import type { TimelineItem } from "../discussionTimeline";
+import { VoiceprintConfirmPanel } from "../VoiceprintConfirmPanel";
 import { ConversationEntry } from "../ConversationEntry";
 
 export function LiveMeetingView(props: {
@@ -285,6 +286,8 @@ export function LiveMeetingView(props: {
         ))}
       </section>
     ) : null}
+
+    {discussion ? <VoiceprintConfirmPanel discussionId={discussion.id} /> : null}
 
     {isEnded && resumeCommand && isCommandExpanded ? (
       <section className="handoff-command" aria-label="Codex 续接命令">

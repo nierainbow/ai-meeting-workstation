@@ -6,6 +6,7 @@ import { humanSpeakerLabel } from "../format";
 import { discussionMarkdownExportUrl, discussionPackageExportUrl } from "../api";
 import type { TimelineItem } from "../discussionTimeline";
 import { ConversationEntry } from "../ConversationEntry";
+import { VoiceprintConfirmPanel } from "../VoiceprintConfirmPanel";
 
 export function FileTranscribeView(props: {
   discussion: DiscussionDetailDto | null;
@@ -179,6 +180,8 @@ export function FileTranscribeView(props: {
       {speakerLabels.length > 0 && discussion ? (
         <section className="voice-binding-strip" aria-label="说话人校正"><strong>说话人校正</strong>{speakerLabels.map((label) => <div className="voice-binding" key={label}><span>{humanSpeakerLabel(label)}</span>{discussion.participants.map((participant) => <button type="button" key={participant.id} onClick={() => onBindSpeaker(label, participant)}>标为 {participant.displayName}</button>)}</div>)}</section>
       ) : null}
+
+      {discussion ? <VoiceprintConfirmPanel discussionId={discussion.id} /> : null}
 
       {!isFileResult ? (
         <section className="file-primary-action" aria-live="polite">
