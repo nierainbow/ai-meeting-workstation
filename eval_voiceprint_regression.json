@@ -1,0 +1,67 @@
+{
+  "in_sample": {
+    "protocol": "fair_compare full-gallery-match, embedder=sidecar ResemblyzerEmbedder",
+    "baseline_top1": 0.6939,
+    "overall_top1": 0.7368,
+    "overall_top1_n": [
+      28,
+      38
+    ],
+    "per_meeting": [
+      {
+        "meeting": "127b28fd-a55e-4cdf-875d-f61614adf146",
+        "top1": 1.0,
+        "n": 8
+      },
+      {
+        "meeting": "1b4e8be6-4444-48e4-b638-d43baab441b5",
+        "top1": 0.25,
+        "n": 4
+      },
+      {
+        "meeting": "323a8ba4-30d9-4ddf-b00c-c76cdc656a0d",
+        "top1": 0.75,
+        "n": 4
+      },
+      {
+        "meeting": "43ad5333-732f-442c-a26d-7897eeede17a",
+        "top1": 1.0,
+        "n": 2
+      },
+      {
+        "meeting": "47493a1e",
+        "top1": 1.0,
+        "n": 2
+      },
+      {
+        "meeting": "af660654-c8eb-4e8e-9d1b-bd63a407b4e9",
+        "top1": 0.5714285714285714,
+        "n": 7
+      },
+      {
+        "meeting": "d676318b-6ea1-4326-baa7-35c199e64734",
+        "top1": 0.5,
+        "n": 4
+      },
+      {
+        "meeting": "f1777826-8839-49be-83aa-77878f64066f",
+        "top1": 0.75,
+        "n": 4
+      },
+      {
+        "meeting": "f32b20e2-30bb-490d-b2ad-0466452a4c9c",
+        "top1": 1.0,
+        "n": 3
+      }
+    ],
+    "pass": true
+  },
+  "production": {
+    "protocol": "master-pkl direct match（真实使用场景，仅参考）",
+    "overall_top1": 0.3947,
+    "overall_top1_n": [
+      15,
+      38
+    ]
+  }
+}
