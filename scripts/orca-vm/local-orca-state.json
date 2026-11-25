@@ -1,0 +1,8 @@
+{
+  "provider": "local-orca-server",
+  "runtimeDir": ".local-data/orca-vm",
+  "port": 0,
+  "projectRoot": "",
+  "repoUrl": "",
+  "repoRef": ""
+}

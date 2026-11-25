@@ -1,0 +1,17 @@
+scripts:
+  setup: ./scripts/orca-vm/setup.sh
+
+environmentRecipes:
+  - id: local-orca-server
+    name: Local Orca Server
+    description: Loopback-only Orca server with isolated runtime state for each workspace.
+    create: ./scripts/orca-vm/local-orca-create.sh
+    suspend: ./scripts/orca-vm/local-orca-suspend.sh
+    resume: ./scripts/orca-vm/local-orca-resume.sh
+    destroy: ./scripts/orca-vm/local-orca-destroy.sh
+    timeoutSeconds:
+      create: 300
+      suspend: 60
+      resume: 300
+      destroy: 60
+    passEnv: []
